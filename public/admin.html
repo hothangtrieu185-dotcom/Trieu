@@ -115,7 +115,7 @@
           '<h2 style="margin-top:8px">' + esc(groupName(ag)) + '</h2></div><div class="center"><div class="small muted">Điểm trung bình hiện tại</div><div style="font-size:44px;font-weight:800;color:var(--accent);line-height:1">' + (ag.total == null ? '—' : ag.total.toFixed(2)) + '</div></div></div>' +
           '<div class="row small" style="margin:8px 0 4px"><span>Đã chấm <b>' + ag.n + '</b> / ' + ag.eligible + ' sinh viên đủ điều kiện</span><span class="tag ' + (S.open ? 'ok' : 'bad') + '">' + (S.open ? 'Đang mở chấm' : 'Đã đóng chấm') + '</span>' + (S.startsAt && (S.startsAt - (S.now + (Date.now() - S.fetchedAt))) > 0 ? '<span class="tag warn">Đang đếm ngược 5 giây</span>' : '') + '</div>' +
           '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
-          '<div class="row" style="margin-top:14px">' + (S.open ? '<button id="close" class="danger">Đóng chấm nhóm này</button>' : '<button id="open">Mở lại chấm</button>') +
+          '<div class="row" style="margin-top:14px">' + (S.open ? '<button id="close" class="danger">Đóng chấm nhóm này</button>' : '<button id="open">Mở lại chấm</button>') + '<button id="back" class="ghost">← Quay lại phòng chờ</button>' +
           '<button class="ghost greset" data-k="' + esc(ag.key) + '"' + (ag.n ? '' : ' disabled') + '>Reset điểm nhóm này</button>' +
           '<label class="row" style="margin:0;font-weight:500"><input type="checkbox" id="live"' + (S.showLive ? ' checked' : '') + '> Hiện điểm trực tiếp trên màn hình chiếu</label></div>' +
           ((S.pending && S.pending.length) ? '<details style="margin-top:12px"><summary class="small"><b>' + S.pending.length + '</b> sinh viên chưa chấm</summary><p class="small muted" style="margin-top:8px">' + S.pending.map(function (p) { return esc(p.name) + ' (' + esc(p.mssv) + ')'; }).join(' · ') + '</p></details>' : '') + nextPanel(ag) + '</div>';
@@ -187,6 +187,9 @@
     if ($('lobby')) $('lobby').onclick = function () { act('/api/admin/lobby'); };
     if ($('start')) $('start').onclick = function () { act('/api/admin/start', { key: $('first').value, form: $('firstform').value }); };
     if ($('url')) fetch('/api/public-url').then(function (r) { return r.json(); }).then(function (j) { if ($('url')) $('url').textContent = j.url; });
+    if ($('back')) $('back').onclick = function () {
+      modal('Quay lại phòng chờ?', 'Dừng chấm nhóm hiện tại và về màn chọn nhóm. Điểm đã chấm (nếu có) vẫn được giữ, nhóm này chấm lại được sau.', 'Quay lại', 'accent', function () { act('/api/admin/back', {}); });
+    };
     if ($('close')) $('close').onclick = function () { act('/api/admin/toggle', { open: false }); };
     if ($('open')) $('open').onclick = function () { act('/api/admin/toggle', { open: true }); };
     if ($('live')) $('live').onchange = function () { act('/api/admin/live', { show: this.checked }); };

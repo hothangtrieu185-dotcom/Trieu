@@ -318,6 +318,12 @@ async function apiAdmin(req, res, url) {
     S.ratings = S.ratings.filter((r) => r.key !== g.key);
     save(); return send(res, 200, { ok: true, removed: before - S.ratings.length });
   }
+  if (p === '/api/admin/back') {   // hủy nhóm đang chấm, quay về phòng chờ để chọn lại nhóm
+    if (S.phase !== 'grading') return fail(res, 409, 'Chưa ở trạng thái chấm.');
+    const g = groupByKey(S.activeKey);
+    if (g && !S.ratings.some((r) => r.key === g.key)) g.order = 0;   // chưa có điểm thì coi như chưa trình bày
+    S.phase = 'lobby'; S.activeKey = null; S.open = false; S.startsAt = 0; save(); return send(res, 200, { ok: true });
+  }
   if (p === '/api/admin/live') { S.showLive = !!b.show; save(); return send(res, 200, { ok: true }); }
   if (p === '/api/admin/end') {
     if (S.phase !== 'grading') return fail(res, 409, 'Chưa ở trạng thái chấm.');
