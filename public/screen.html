@@ -41,6 +41,20 @@
 
   // ---------- dựng khung ----------
   var TIPS = ['🎯 Chấm công tâm: mỗi tiêu chí một thang điểm từ 0 đến 10.', '🙅 Bạn không được chấm nhóm của chính mình.', '🔒 Điểm đã gửi sẽ không sửa lại được, hãy cân nhắc trước khi bấm gửi.', '📱 Giữ nguyên màn hình điện thoại, đừng thoát khỏi trang chấm.', '👀 Theo dõi màn hình chiếu để xem điểm thay đổi theo từng lượt chấm.', '⏱️ Khi giảng viên bắt đầu sẽ có 5 giây đếm ngược cho cả lớp.'];
+  var JOKES = ["Mình đến sớm nhất nè, nhớ ghi công nha!", "Điện thoại sạc đầy 100%, sẵn sàng chiến đấu!", "Chấm nhẹ tay thôi nha, nhóm mình cũng run lắm 🥹", "Tim đập nhanh quá, chưa chấm mà đã hồi hộp rồi", "Ngồi im như tượng, chờ thầy bấm nút…", "Có ai mang theo bánh tráng trộn không?", "Mình chấm công tâm lắm, không thiên vị bạn thân đâu!", "Quét mã xong mà tay vẫn còn run", "Ai chưa vào thì nhanh lên, tụi mình đợi nè 👀", "Mình vào rồi nè, thầy ơi bắt đầu thôi!", "Hôm nay mình là giám khảo, oai chưa?", "Không biết nhóm nào trình bày hay nhất nhỉ?", "Wifi ơi đừng chập chờn vào lúc này nhé 🙏", "Chấm điểm mà vui như đi xem hội chợ", "Nhớ đọc kỹ tiêu chí trước khi chấm nha mọi người", "Mình đang tập trung cao độ, đừng làm phiền!", "Có bạn nào tính chấm 10 điểm hết không? 😏", "Bấm nhầm là hết sửa đó nha, cẩn thận!", "Mình chuẩn bị tinh thần làm giám khảo khó tính", "Hôm nay ai cũng là một chuyên gia thẩm định", "Đang nín thở chờ đếm ngược 5 giây…", "Ai nhớ tắt chế độ tiết kiệm pin chưa?", "Mình đã đọc hết hướng dẫn rồi, đừng hỏi lại nha", "Một, hai, ba… sẵn sàng!", "Chấm xong nhớ vỗ tay cho nhóm bạn nhé 👏", "Ngồi ngay ngắn, mắt nhìn màn hình, tay cầm điện thoại", "Mình vào phòng chờ mà thấy như vào phòng thi", "Bình tĩnh, bình tĩnh, chỉ là chấm điểm thôi mà", "Mình hứa chấm thật công bằng 🤝", "Mình mang theo con mắt tinh đời đây", "Phòng chờ đông vui quá, như đi xem ca nhạc", "Ai chấm xong sớm thì được tự hào một chút ✨", "Cho mình xin ít may mắn để bấm gửi đúng nút", "Có ai thấy mình lẻ loi không? Mình chờ nhóm nào cũng được", "Mình chấm điểm chứ không chấm… công đâu nha", "Chờ hoài mà vẫn thấy vui, lạ thật", "Hôm nay không ai được ngủ gật nha", "Mình đang luyện ngón tay kéo thanh điểm đây", "Kéo thanh điểm mà như chơi trò chơi vậy", "Đừng quên chấm đủ 5 tiêu chí nha cả nhà", "Mình chọn điểm theo cảm xúc… à nhầm, theo tiêu chí!", "Bạn bên cạnh ơi, đừng nhìn điểm của mình 🙈", "Hôm nay mình làm giám khảo, ngày mai mình lên thuyết trình", "Ghi nhớ ngay: không chấm nhóm của mình nha!", "Mình đang nhẩm tính trọng số trong đầu", "Điểm cao hay thấp cũng cần có lý do, đúng không?", "Mình ngồi đây từ nãy, ghế còn chưa ấm", "Hồi hộp hơn cả lúc chờ điểm cuối kỳ", "Ai có kẹo không, mình xin một viên cho tỉnh táo", "Hôm nay điện thoại mình làm việc chăm chỉ", "Có tiếng ai thì thầm: “thầy sắp bấm rồi đó”…", "Mình đã sẵn sàng cho màn chấm điểm kịch tính", "Mình chỉ cầu mong điện thoại không tự khóa màn hình", "Lỡ tay bấm sai thì mình… tự an ủi thôi", "Chấm điểm mà vui, học mà cũng vui ✌️", "Cứ bình tĩnh, mình chấm xong còn kịp uống nước", "Một bạn nói: “mình đoán thầy sắp bắt đầu”", "Mình ngồi đây, mắt không rời màn chiếu", "Nhóm nào cũng xứng đáng được một tràng pháo tay", "Mình mang đủ tinh thần phản biện nè 🧠", "Hôm nay mình chấm bằng cả trái tim… và tiêu chí", "Mình đếm thử: bao nhiêu bạn ngồi cạnh mình nhỉ?", "Hít thở sâu nào, sắp tới giờ chấm rồi", "Ai quét QR xong mà không thấy gì thì chờ chút nhé", "Không có bài tập nào vui bằng bài tập chấm điểm", "Mình đang tập làm giám khảo chuyên nghiệp", "Nhớ nhìn kỹ phần trình bày rồi hãy chấm nha", "Có ai cùng hội “hồi hộp quá” với mình không?", "Mình đã tắt thông báo để tập trung chấm", "Cười lên nào, không khí vui là điểm cũng đẹp", "Chờ xíu thôi, vui rồi sẽ tới 🎉", "Mình thề sẽ chấm đúng theo thang điểm", "Đừng quên rằng phía sau mỗi nhóm là cả một quá trình làm việc", "Mình ngồi thẳng lưng, sẵn sàng lắng nghe", "Bấm nút “Gửi” thật chậm rãi, cẩn thận kẻo nhầm", "Ai mà chấm 0 điểm thì… chắc ngủ quên rồi", "Chấm điểm đừng thiên vị, nhưng khen thì thoải mái!", "Mình mang theo một đôi tai biết lắng nghe", "Số người trong phòng tăng nhanh như điểm cuối kỳ… hy vọng thế 😆", "Mình thấy phòng chờ hôm nay đông vui ghê", "Chuẩn bị tinh thần: sắp có điểm số nhảy múa trên màn chiếu!", "Mình thích nhất là lúc điểm số cập nhật trực tiếp", "Có ai đoán trước nhóm đầu tiên là ai không?", "Mình đoán sắp có nhóm thuyết trình siêu đỉnh", "Ngồi chờ mà thấy bản thân như phóng viên hiện trường", "Nếu mình biết bay, mình đã vào phòng sớm hơn nữa", "Mình quyết tâm không lướt mạng xã hội trong giờ chấm", "Bữa nay chấm điểm xong, chắc mình đói lắm…", "Mình đang lên dây cót tinh thần", "Hôm nay ai cũng có một quyền lực nho nhỏ: quyền chấm điểm!", "Quyền lực lớn đi kèm trách nhiệm lớn, chấm cẩn thận nha", "Mình đã sẵn sàng, còn bạn thì sao?", "Bạn nào mới vào thì chào nhau một tiếng nhé 👋", "Mình đang chờ, nhưng chờ trong vui vẻ", "Vỗ tay cho những bạn đến đúng giờ nào!", "Lớp mình hôm nay trông thật chuyên nghiệp", "Mình đang nhẩm lại các tiêu chí chấm điểm", "Phòng chờ này vui hơn mình tưởng", "Mình mong được thấy những phần trình bày thật sáng tạo", "Học hỏi từ bạn cũng là một cách để giỏi hơn", "Cứ yên tâm, mình sẽ chấm một cách tử tế", "Cả lớp cùng chấm, cả lớp cùng vui!", "Nghe nói chấm xong sẽ có điểm của nhóm, hồi hộp ghê", "Mình xin cam đoan: không bấm nhầm nút Gửi", "Sẵn sàng khởi động, 3… 2… 1… 🚀"];
+  var deck = [];
+  function nextJoke() {   // xáo bài: mỗi bạn một câu khác nhau, hết 100 câu mới xáo lại
+    if (!deck.length) { deck = JOKES.slice(); for (var i = deck.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = deck[i]; deck[i] = deck[j]; deck[j] = t; } }
+    return deck.pop();
+  }
+  function say(el) {   // bóng thoại hiện phía trên bong bóng của bạn đó
+    if (!el || !el.isConnected || document.querySelectorAll('.sbl').length >= 3) return;
+    var r = el.getBoundingClientRect(), d = document.createElement('div'), up = r.top > innerHeight * 0.3;
+    d.className = 'sbl' + (up ? '' : ' dn'); d.textContent = el.dataset.q;
+    var x = Math.max(innerHeight * 0.17, Math.min(innerWidth - innerHeight * 0.17, r.left + r.width / 2));
+    d.style.left = x + 'px'; d.style.top = (up ? r.top - 8 : r.bottom + 8) + 'px'; d.style.setProperty('--tx', (r.left + r.width / 2 - x).toFixed(0) + 'px');
+    document.body.appendChild(d); setTimeout(function () { d.remove(); }, 3600);
+  }
   var lb = { joined: 0, full: {}, ready: false, tip: 0, tipTimer: null, feedTimer: null, pend: 0, pendCls: '' };
   function burst(el, n, big) {
     if (!el) return; var r = el.getBoundingClientRect();
@@ -61,6 +75,8 @@
       '<div class="lb-card lb-bubwrap"><div class="lb-bubhead"><span>Những bạn đã vào phòng</span><span class="lb-feed" id="lfeed"></span></div><div class="lb-bub" id="bub"></div></div></div></div>' +
       '<div class="lb-foot" id="ltip"></div>';
     shownBubbles = 0; lb.joined = 0; lb.full = {}; lb.ready = false; lb.tip = 0; lb.pend = 0;
+    clearInterval(lb.sayTimer);
+    lb.sayTimer = setInterval(function () { var b = $('bub'); if (!b) { clearInterval(lb.sayTimer); return; } var kids = b.children; if (kids.length) say(kids[Math.floor(Math.random() * kids.length)]); }, 2200);
     clearInterval(lb.tipTimer); var tp = $('ltip'); tp.textContent = TIPS[0];
     lb.tipTimer = setInterval(function () { var t = $('ltip'); if (!t) { clearInterval(lb.tipTimer); return; } t.style.opacity = 0; setTimeout(function () { lb.tip = (lb.tip + 1) % TIPS.length; t.textContent = TIPS[lb.tip]; t.style.opacity = ''; }, 400); }, 6000);
   }
@@ -134,10 +150,11 @@
     if (arr.length < shownBubbles) { b.innerHTML = ''; shownBubbles = 0; }
     var fresh = lb.ready ? arr.slice(shownBubbles) : [];
     for (var i = shownBubbles; i < arr.length; i++) {
-      var e = document.createElement('i'); e.textContent = arr[i].t; e.title = arr[i].c;
+      var e = document.createElement('i'); e.textContent = arr[i].t; e.dataset.q = nextJoke();
       e.style.animationDelay = '0s,' + ((i % 9) * 0.4) + 's'; if (lb.ready) e.className = 'new'; b.appendChild(e);
     }
     shownBubbles = arr.length;
+    if (fresh.length) { var kids2 = b.children; for (var k = 0; k < Math.min(2, fresh.length); k++) (function (el, delay) { setTimeout(function () { say(el); }, delay); })(kids2[kids2.length - 1 - k], 500 + k * 900); }
     if (fresh.length) {
       var f = $('lfeed'); f.classList.remove('show'); void f.offsetWidth;
       f.textContent = '🎉 ' + (fresh.length > 1 ? fresh.length + ' bạn' : 'Một bạn') + ' lớp ' + fresh[fresh.length - 1].c + ' vừa vào phòng';
@@ -168,7 +185,7 @@
     offset = v.now - Date.now();
     var m = v.phase + (v.active ? ':' + v.active.key : '');
     if (m !== mode) {
-      mode = m; app.classList.toggle('lobby-on', v.phase === 'lobby');
+      mode = m; app.classList.toggle('lobby-on', v.phase === 'lobby'); document.querySelectorAll('.sbl').forEach(function (x) { x.remove(); }); if (v.phase !== 'lobby') clearInterval(lb.sayTimer);
       if (v.phase === 'setup') app.innerHTML = '<div style="text-align:center;margin-top:20vh"><h1 style="font-size:5vh">Buổi chấm điểm</h1><p style="font-size:3vh;opacity:.8">Đang chuẩn bị...</p></div>';
       else if (v.phase === 'lobby') buildLobby();
       else if (v.phase === 'grading') { if (v.active) buildGrading(v); else app.innerHTML = '<div style="text-align:center;margin-top:20vh"><h1 style="font-size:5vh">Vui lòng chờ phần trình bày tiếp theo</h1></div>'; }
