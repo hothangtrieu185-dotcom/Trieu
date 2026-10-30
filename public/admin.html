@@ -42,9 +42,9 @@
   var PHASE = { setup: 'Chuẩn bị', lobby: 'Phòng chờ', grading: 'Đang chấm', ended: 'Đã kết thúc' };
   function groupName(g) { return g.cls + ' · Nhóm ' + g.group; }
 
-  function render() {
-    // không vẽ lại khi người dùng đang thao tác trên ô chọn
-    var ae = document.activeElement; if (ae && (ae.tagName === 'SELECT' || ae.tagName === 'INPUT')) return;
+  function render(force) {
+    // chỉ hoãn vẽ lại khi đang mở ô chọn hình thức (tự làm mới); thao tác của giảng viên luôn vẽ lại ngay
+    var ae = document.activeElement; if (!force && ae && ae.tagName === 'SELECT') return;
     var h = '<div class="row" style="justify-content:space-between;margin-bottom:12px"><div><h1>Điều khiển buổi chấm</h1><span class="tag">' + PHASE[S.phase] + '</span> <span class="muted small">' + S.joined + '/' + S.total + ' sinh viên đã vào phòng</span></div>' +
       '<div class="row"><a href="/screen" target="_blank"><button class="ghost">Mở màn hình chiếu</button></a><button class="ghost" id="rep">Tải báo cáo Excel</button></div></div>';
     if (notice) h += '<div class="err" style="margin:0 0 12px">' + esc(notice) + '</div>';
@@ -134,7 +134,7 @@
   function load(force) {
     if (!token) return Promise.resolve();
     return api('/api/admin/state').then(function (j) {
-      var sig = JSON.stringify(Object.assign({}, j, { now: 0 })); if (!force && sig === lastSig) return; lastSig = sig; S = j; S.fetchedAt = Date.now(); render();
+      var sig = JSON.stringify(Object.assign({}, j, { now: 0 })); if (!force && sig === lastSig) return; lastSig = sig; S = j; S.fetchedAt = Date.now(); render(force);
     }).catch(function () {});
   }
   function start() { stop(); timer = setInterval(function () { load(false); }, 2000); }
