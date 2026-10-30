@@ -282,13 +282,18 @@ async function apiAdmin(req, res, url) {
   if (p === '/api/admin/lobby') {
     if (S.phase !== 'setup') return fail(res, 409, 'Phòng chờ đã mở.');
     if (!S.groups.length) return fail(res, 400, 'Chưa có danh sách lớp.');
-    if (S.groups.some((g) => !g.form)) return fail(res, 400, 'Còn nhóm chưa chọn hình thức.');
     S.phase = 'lobby'; save(); return send(res, 200, { ok: true });
   }
   if (p === '/api/admin/start') {  // kích hoạt chấm và/hoặc chuyển sang nhóm khác
     const g = groupByKey(b.key);
     if (!g) return fail(res, 400, 'Chọn nhóm cần chấm.');
     if (S.phase !== 'lobby' && S.phase !== 'grading') return fail(res, 409, 'Chưa thể bắt đầu chấm.');
+    // hình thức được chọn ngay lúc nhóm trình bày; đã có điểm thì không đổi để rubric không bị lệch
+    if (b.form && RUBRICS[b.form] && b.form !== g.form) {
+      if (S.ratings.some((r) => r.key === g.key)) return fail(res, 409, 'Nhóm này đã có điểm, không đổi hình thức được.');
+      g.form = b.form;
+    }
+    if (!g.form) return fail(res, 400, 'Hãy chọn hình thức dự án của nhóm này trước khi bắt đầu chấm.');
     if (!g.order) g.order = Math.max(0, ...S.groups.map((x) => x.order || 0)) + 1;
     S.phase = 'grading'; S.activeKey = g.key; S.open = true; S.startsAt = Date.now() + 5000; save(); return send(res, 200, { ok: true });
   }

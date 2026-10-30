@@ -41,6 +41,11 @@
 
   var PHASE = { setup: 'Chuẩn bị', lobby: 'Phòng chờ', grading: 'Đang chấm', ended: 'Đã kết thúc' };
   function groupName(g) { return g.cls + ' · Nhóm ' + g.group; }
+  var pick = {};   // lựa chọn tạm của giảng viên, giữ lại khi trang tự làm mới
+  function formSelect(id, val, cls) {
+    return '<select id="' + id + '" class="' + (cls || 'fsel2') + '" data-id="' + id + '"><option value="">Chọn hình thức...</option>' +
+      Object.keys(S.forms).map(function (f) { return '<option value="' + f + '"' + (val === f ? ' selected' : '') + '>' + esc(S.forms[f].label) + '</option>'; }).join('') + '</select>';
+  }
 
   function render(force) {
     // chỉ hoãn vẽ lại khi đang mở ô chọn hình thức (tự làm mới); thao tác của giảng viên luôn vẽ lại ngay
@@ -54,14 +59,11 @@
       h += '<div class="card"><h2>Bước 1. Danh sách lớp</h2><p class="muted small">Tải file bảng điểm (.xlsx) của từng lớp, hệ thống tự đọc MSSV, họ tên và nhóm.</p>' +
         '<input type="file" id="files" accept=".xlsx" multiple style="margin-bottom:10px">' +
         (S.classes.length ? '<table><tr><th>Lớp</th><th>Số sinh viên</th></tr>' + S.classes.map(function (c) { return '<tr><td>' + esc(c.cls) + '</td><td>' + c.count + '</td></tr>'; }).join('') + '</table>' : '<p class="muted">Chưa có danh sách.</p>') + '</div>';
-      // 2. hình thức
+      // 2. tạo phòng chờ (hình thức từng nhóm được chọn lúc nhóm đó trình bày)
       if (S.groups.length) {
-        h += '<div class="card"><h2>Bước 2. Hình thức dự án của từng nhóm</h2><p class="muted small">Chọn hình thức, bảng rubric sẽ tự hiện đúng theo hình thức đó cho sinh viên.</p><table><tr><th>Lớp</th><th>Nhóm</th><th>Số bạn</th><th>Hình thức</th></tr>';
-        S.groups.forEach(function (g) {
-          h += '<tr><td>' + esc(g.cls) + '</td><td>' + g.group + '</td><td>' + g.members + '</td><td><select data-k="' + esc(g.key) + '" class="fsel"><option value="">Chọn...</option>' +
-            Object.keys(S.forms).map(function (f) { return '<option value="' + f + '"' + (g.form === f ? ' selected' : '') + '>' + esc(S.forms[f].label) + '</option>'; }).join('') + '</select></td></tr>';
-        });
-        h += '</table><div style="margin-top:14px"><button class="accent" id="lobby"' + (S.groups.some(function (g) { return !g.form; }) ? ' disabled' : '') + '>Tạo mã QR và mở phòng chờ</button></div></div>';
+        h += '<div class="card"><h2>Bước 2. Mở phòng chờ</h2><p class="muted small">Hình thức dự án (Workshop, Video, Fanpage Facebook) anh chọn riêng cho từng nhóm ngay lúc nhóm đó chuẩn bị trình bày.</p><table><tr><th>Lớp</th><th>Nhóm</th><th>Số bạn</th></tr>' +
+          S.groups.map(function (g) { return '<tr><td>' + esc(g.cls) + '</td><td>' + g.group + '</td><td>' + g.members + '</td></tr>'; }).join('') +
+          '</table><div style="margin-top:14px"><button class="accent" id="lobby">Tạo mã QR và mở phòng chờ</button></div></div>';
       }
     }
 
@@ -70,8 +72,9 @@
       h += '<div class="grid two"><div class="card center"><h2>Mã QR cho sinh viên</h2><div class="qrbox" style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:2px solid var(--brand)"><img src="/qr.svg" alt="QR" style="width:220px;height:220px;display:block"></div>' +
         '<p class="small muted" id="url" style="margin-top:8px"></p><p class="small muted">Để chiếu QR lớn cho cả lớp, bấm "Mở màn hình chiếu".</p></div>' +
         '<div class="card"><h2>Bước 3. Kích hoạt chấm</h2><p><b style="font-size:32px">' + S.joined + '</b> <span class="muted">/ ' + S.total + ' sinh viên đã vào</span></p>' +
-        '<label>Phần trình bày đầu tiên</label><select id="first">' + S.groups.map(function (g) { return '<option value="' + esc(g.key) + '">' + esc(groupName(g)) + ' (' + esc(g.formLabel) + ')</option>'; }).join('') + '</select>' +
-        '<div style="margin-top:14px"><button class="accent full" id="start">Kích hoạt hệ thống chấm (đếm ngược 5 giây)</button></div></div></div>';
+        '<label>Nhóm trình bày đầu tiên</label><select id="first">' + S.groups.map(function (g) { return '<option value="' + esc(g.key) + '"' + (pick.first === g.key ? ' selected' : '') + '>' + esc(groupName(g)) + '</option>'; }).join('') + '</select>' +
+        '<label>Hình thức dự án của nhóm này</label>' + formSelect('firstform', pick.firstform) +
+        '<div style="margin-top:14px"><button class="accent full" id="start"' + (pick.firstform ? '' : ' disabled') + '>Kích hoạt hệ thống chấm (đếm ngược 5 giây)</button></div></div></div>';
     }
 
     // 4. đang chấm / kết thúc
@@ -90,10 +93,11 @@
       h += '<div class="card"><h2>' + (S.phase === 'ended' ? 'Kết quả' : 'Các phần trình bày') + '</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">';
       S.groups.forEach(function (g) {
         var act = g.key === S.activeKey && S.phase === 'grading';
-        h += '<div class="gcard' + (act ? ' active' : '') + '"><div class="row" style="justify-content:space-between"><b>' + esc(groupName(g)) + '</b><span class="tag warn">' + esc(g.formLabel) + '</span></div>' +
+        h += '<div class="gcard' + (act ? ' active' : '') + '"><div class="row" style="justify-content:space-between"><b>' + esc(groupName(g)) + '</b>' + (g.form ? '<span class="tag warn">' + esc(g.formLabel) + '</span>' : '<span class="tag">Chưa chọn</span>') + '</div>' +
           '<div class="small muted" style="margin:6px 0">' + (g.order ? 'Thứ ' + g.order + ' · ' + g.n + ' lượt chấm' : 'Chưa trình bày') + '</div>' +
           '<div style="font-size:26px;font-weight:800">' + (g.total == null ? '—' : g.total.toFixed(2)) + '</div>' +
-          (S.phase === 'grading' && !act ? '<button class="' + (g.order ? 'ghost' : 'accent') + ' full gstart" data-k="' + esc(g.key) + '" style="margin-top:8px">' + (g.order ? 'Mở lại nhóm này' : 'Chuyển sang nhóm này') + '</button>' : '') + '</div>';
+          (S.phase === 'grading' && !act ? (g.form ? '' : '<div style="margin-top:8px">' + formSelect('gf_' + g.key, pick['gf_' + g.key], 'fsel2') + '</div>') +
+            '<button class="' + (g.order ? 'ghost' : 'accent') + ' full gstart" data-k="' + esc(g.key) + '" style="margin-top:8px"' + (!g.form && !pick['gf_' + g.key] ? ' disabled' : '') + '>' + (g.order ? 'Mở lại nhóm này' : 'Chuyển sang nhóm này') + '</button>' : '') + '</div>';
       });
       h += '</div></div>';
       if (S.phase === 'grading') h += '<div class="card"><h2>Bước 5. Kết thúc buổi chấm</h2><p class="muted small">Sau khi kết thúc, sinh viên của từng nhóm sẽ thấy điểm tổng của nhóm mình trên điện thoại, và màn hình chiếu hiện bảng kết quả. Anh tải báo cáo Excel ở nút phía trên.</p><button class="danger" id="end">Kết thúc buổi chấm</button></div>';
@@ -119,14 +123,21 @@
       fs.reduce(function (p, f) { return p.then(function () { return f.arrayBuffer().then(function (buf) { return api('/api/admin/roster', { method: 'POST', body: buf, headers: { 'Content-Type': 'application/octet-stream' } }); }); }); }, Promise.resolve())
         .then(function () { load(true); }).catch(function (e) { notice = e.message; load(true); });
     };
-    document.querySelectorAll('.fsel').forEach(function (s) { s.onchange = function () { var o = {}; o[s.getAttribute('data-k')] = s.value || null; act('/api/admin/forms', { forms: o }); }; });
+    document.querySelectorAll('.fsel2').forEach(function (s) {
+      s.onchange = function () {
+        pick[s.getAttribute('data-id')] = s.value || '';
+        var btn = s.id === 'firstform' ? $('start') : (s.parentNode.nextElementSibling);
+        if (btn) btn.disabled = !s.value;
+      };
+    });
+    if ($('first')) $('first').onchange = function () { pick.first = this.value; };
     if ($('lobby')) $('lobby').onclick = function () { act('/api/admin/lobby'); };
-    if ($('start')) $('start').onclick = function () { act('/api/admin/start', { key: $('first').value }); };
+    if ($('start')) $('start').onclick = function () { act('/api/admin/start', { key: $('first').value, form: $('firstform').value }); };
     if ($('url')) fetch('/api/public-url').then(function (r) { return r.json(); }).then(function (j) { if ($('url')) $('url').textContent = j.url; });
     if ($('close')) $('close').onclick = function () { act('/api/admin/toggle', { open: false }); };
     if ($('open')) $('open').onclick = function () { act('/api/admin/toggle', { open: true }); };
     if ($('live')) $('live').onchange = function () { act('/api/admin/live', { show: this.checked }); };
-    document.querySelectorAll('.gstart').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-k'); modal('Chuyển nhóm?', 'Phần trình bày hiện tại sẽ đóng chấm và chuyển sang nhóm được chọn.', 'Chuyển', 'accent', function () { act('/api/admin/start', { key: k }); }); }; });
+    document.querySelectorAll('.gstart').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-k'), f = pick['gf_' + k] || ''; modal('Chuyển nhóm?', 'Phần trình bày hiện tại sẽ đóng chấm và chuyển sang nhóm được chọn, có đếm ngược 5 giây.', 'Chuyển', 'accent', function () { act('/api/admin/start', { key: k, form: f }); }); }; });
     if ($('end')) $('end').onclick = function () { modal('Kết thúc buổi chấm?', 'Sinh viên sẽ không chấm thêm được nữa và điểm tổng được gửi về từng nhóm. Không thể hoàn tác.', 'Kết thúc', 'danger', function () { act('/api/admin/end'); }); };
     if ($('reset')) $('reset').onclick = function () { modal('Xóa toàn bộ điểm?', 'Toàn bộ điểm và danh sách sinh viên đã vào phòng sẽ bị xóa. Hãy chắc rằng anh đã tải báo cáo Excel.', 'Xóa', 'danger', function () { act('/api/admin/reset', { confirm: 'XOA' }); }); };
   }
