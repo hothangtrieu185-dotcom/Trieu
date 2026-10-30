@@ -352,6 +352,12 @@ async function apiAdmin(req, res, url) {
     if (g && !S.ratings.some((r) => r.key === g.key)) g.order = 0;   // chưa có điểm thì coi như chưa trình bày
     S.phase = 'lobby'; S.activeKey = null; S.open = false; S.startsAt = 0; save(); return send(res, 200, { ok: true });
   }
+  if (p === '/api/admin/unlobby') {   // đóng phòng chờ, quay về bước chuẩn bị (đổi lớp, tải lại danh sách)
+    if (S.phase !== 'lobby') return fail(res, 409, 'Chỉ quay lại được khi đang ở phòng chờ.');
+    if (S.ratings.length) return fail(res, 409, 'Đã có điểm chấm nên không quay lại được. Hãy kết thúc buổi và bắt đầu buổi chấm mới.');
+    S.phase = 'setup'; S.sessionClass = null; S.students = {}; S.activeKey = null; S.open = false; S.startsAt = 0;
+    S.groups.forEach((g) => { g.order = null; }); rebuildGroups(); save(); return send(res, 200, { ok: true });
+  }
   if (p === '/api/admin/live') { S.showLive = !!b.show; save(); return send(res, 200, { ok: true }); }
   if (p === '/api/admin/end') {
     if (S.phase !== 'grading') return fail(res, 409, 'Chưa ở trạng thái chấm.');

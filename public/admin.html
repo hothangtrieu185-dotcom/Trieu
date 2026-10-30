@@ -99,7 +99,8 @@
 
     // 3. phòng chờ
     if (S.phase === 'lobby') {
-      h += '<div class="grid two"><div class="card center"><h2>Mã QR cho sinh viên' + (S.sessionClass ? ' · lớp ' + esc(S.sessionClass) : '') + '</h2><div class="qrbox" style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:2px solid var(--brand)"><img src="/qr.svg" alt="QR" style="width:220px;height:220px;display:block"></div>' +
+      h += '<div class="card" style="padding:12px 16px"><div class="row" style="justify-content:space-between"><button class="ghost" id="unlobby">← Quay lại bước chuẩn bị</button><button class="ghost" id="logout2">Đăng xuất</button></div><p class="muted small" style="margin:8px 0 0">Quay lại để đổi lớp hoặc tải lại danh sách. Các bạn đã vào phòng sẽ phải quét lại QR.</p></div>' +
+        '<div class="grid two"><div class="card center"><h2>Mã QR cho sinh viên' + (S.sessionClass ? ' · lớp ' + esc(S.sessionClass) : '') + '</h2><div class="qrbox" style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:2px solid var(--brand)"><img src="/qr.svg" alt="QR" style="width:220px;height:220px;display:block"></div>' +
         '<p class="small muted" id="url" style="margin-top:8px"></p><p class="small muted">Để chiếu QR lớn cho cả lớp, bấm "Mở màn hình chiếu".</p></div>' +
         '<div class="card"><h2>Bước 3. Kích hoạt chấm</h2><p><b style="font-size:32px">' + S.joined + '</b> <span class="muted">/ ' + S.total + ' sinh viên đã vào</span></p>' +
         '<label style="margin-top:0">Nhóm trình bày đầu tiên</label><select id="first">' + S.groups.map(function (g) { return '<option value="' + esc(g.key) + '"' + (pick.first === g.key ? ' selected' : '') + '>' + esc(groupName(g)) + '</option>'; }).join('') + '</select>' +
@@ -148,6 +149,10 @@
   }
   function bind() {
     var $ = function (id) { return document.getElementById(id); };
+    if ($('unlobby')) $('unlobby').onclick = function () {
+      modal('Quay lại bước chuẩn bị?', 'Phòng chờ sẽ đóng, các bạn đã vào phòng (' + S.joined + ') phải quét lại QR sau khi anh mở phòng chờ mới. Danh sách lớp vẫn giữ nguyên.', 'Quay lại', 'accent', function () { act('/api/admin/unlobby', {}); });
+    };
+    if ($('logout2')) $('logout2').onclick = function () { $('logout').click(); };
     $('logout').onclick = function () {
       modal('Đăng xuất?', 'Buổi chấm vẫn tiếp tục chạy bình thường. Chỉ cần nhập lại mật khẩu để điều khiển.', 'Đăng xuất', 'accent', function () {
         stop(); token = null; S = null; lastSig = '';
