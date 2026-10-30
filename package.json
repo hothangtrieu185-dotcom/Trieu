@@ -1,0 +1,17 @@
+{
+  "name": "cham-diem-trinh-bay",
+  "version": "1.0.0",
+  "description": "Hệ thống chấm điểm phần trình bày nhóm",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "qrcode": "^1.5.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true
+}

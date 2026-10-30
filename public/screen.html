@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Màn hình chấm điểm</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="screen">
+<div class="panel" id="app"></div>
+<script>
+(function () {
+  var app = document.getElementById('app'), mode = '', url = '', offset = 0, last = null, cdTimer = null, cdFor = 0, lastSeq = 0, shownBubbles = 0;
+  var C = 2 * Math.PI * 45;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function $(id) { return document.getElementById(id); }
+  function now() { return Date.now() + offset; }
+  fetch('/api/public-url').then(function (r) { return r.json(); }).then(function (j) { url = j.url; var u = $('url'); if (u) u.textContent = url; });
+
+  function countTo(el, to, dec, ms) {
+    if (!el) return; var from = el._v == null ? 0 : el._v; el._v = to;
+    if (to == null) { el.textContent = '—'; return; }
+    var t0 = performance.now(); ms = ms || 800;
+    (function f(t) { var p = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - p, 3); el.textContent = (from + (to - from) * e).toFixed(dec); if (p < 1) requestAnimationFrame(f); })(t0);
+  }
+  function flash(el, cls) { el.classList.remove('up', 'down'); void el.offsetWidth; el.classList.add(cls); }
+
+  // ---------- đếm ngược toàn màn hình ----------
+  function countdown(v) {
+    if (cdFor === v.startsAt) return; cdFor = v.startsAt;
+    var ov = document.createElement('div'); ov.className = 'cd-screen'; ov.id = 'cdscreen';
+    ov.innerHTML = '<div style="font-size:4vh;opacity:.85">Phần trình bày thứ ' + esc(v.active.order) + ' · ' + esc(v.active.formLabel) + '</div><div style="font-size:6vh;font-weight:800;margin:1vh 0">Chuẩn bị chấm điểm</div><div class="cd-num" id="cdnum"></div>';
+    document.body.appendChild(ov); var shown = null;
+    function tick() {
+      var left = Math.ceil((v.startsAt - now()) / 1000);
+      if (left <= 0) { clearInterval(cdTimer); ov.remove(); return; }
+      if (left !== shown) { shown = left; var n = $('cdnum'); n.textContent = left; n.style.animation = 'none'; void n.offsetWidth; n.style.animation = ''; }
+    }
+    clearInterval(cdTimer); tick(); cdTimer = setInterval(tick, 100);
+  }
+
+  // ---------- dựng khung ----------
+  function buildLobby() {
+    app.innerHTML = '<div style="display:flex;gap:5vw;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:3vh"><div class="qrbox anim-up"><img src="/qr.svg" alt="QR"></div>' +
+      '<div style="max-width:620px"><h1 style="font-size:5.5vh;margin-bottom:12px">Quét mã QR để vào chấm điểm</h1><p style="font-size:3vh;opacity:.85">Nhập họ tên và MSSV của bạn. Sau khi vào phòng, vui lòng chờ giảng viên bắt đầu.</p>' +
+      '<p style="font-size:2.4vh;opacity:.7;word-break:break-all" id="url">' + esc(url) + '</p><div style="margin-top:2vh;opacity:.85;font-size:3vh">Đã vào phòng</div><div class="num" id="jn">0</div><div class="bubbles" id="bub"></div></div></div>';
+    shownBubbles = 0;
+  }
+  function buildGrading(v) {
+    var a = v.active;
+    app.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2vw;flex-wrap:wrap"><div><div style="font-size:3vh;opacity:.8">Phần trình bày thứ ' + a.order + '</div><h1 style="font-size:7.5vh;margin:0">' + esc(a.formLabel) + '</h1></div>' +
+      '<div style="font-size:2.8vh" id="status"></div></div>' +
+      '<div class="sgrid"><div><div class="card-s" style="text-align:center"><div style="font-size:2.6vh;opacity:.8;margin-bottom:1vh">Điểm trung bình</div>' +
+      '<div class="ring"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" fill="none" stroke-width="9"/><circle class="val" id="rv" cx="50" cy="50" r="45" fill="none" stroke-width="9" stroke-dasharray="' + C + '" stroke-dashoffset="' + C + '"/></svg>' +
+      '<div class="mid"><b id="tot">—</b><span style="opacity:.7;font-size:2.4vh">/ 10</span></div></div>' +
+      '<div style="margin-top:2vh;font-size:2.6vh">Đã chấm <b id="pn">0</b> / <span id="pe">0</span> bạn</div><div class="bar" style="margin-top:8px"><i id="pbar" style="width:0%"></i></div></div></div>' +
+      '<div><div class="card-s" id="crits">' + a.criteria.map(function (c) {
+        return '<div class="crow" data-id="' + c.id + '"><div class="t"><span>' + esc(c.name) + ' <span class="w">(' + c.weight + '%)</span></span><span><span class="delta"></span><b class="cv">—</b></span></div><div class="bar"><i style="width:0%"></i></div></div>';
+      }).join('') + '</div></div></div>' +
+      '<div class="sgrid" style="margin-top:2vh;grid-template-columns:1fr 1fr" id="extra"><div class="card-s"><div style="font-size:2.4vh;opacity:.8;margin-bottom:1vh">Phân bố điểm các lượt chấm</div><div class="hist" id="hist">' +
+      '<div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div><div class="hlab"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9+</span></div></div>' +
+      '<div class="card-s"><div style="font-size:2.4vh;opacity:.8;margin-bottom:1vh">Vừa có lượt chấm mới</div><div class="feed" id="feed"></div></div></div>' +
+      '<p id="hide" style="display:none;margin-top:4vh;font-size:2.6vh;opacity:.75;text-align:center">Điểm sẽ được công bố sau khi kết thúc buổi chấm.</p>';
+    lastSeq = 0;
+  }
+
+  // ---------- cập nhật ----------
+  function updGrading(v) {
+    var a = v.active;
+    $('status').innerHTML = a.open ? '<span class="pulse"></span>Đang mở chấm' : '🔒 Đã đóng chấm';
+    countTo($('tot'), a.total, 2, 900);
+    $('rv').style.strokeDashoffset = C * (1 - (a.total == null ? 0 : a.total / 10));
+    $('pn').textContent = a.n; $('pe').textContent = a.eligible; $('pbar').style.width = (a.eligible ? Math.round(a.n / a.eligible * 100) : 0) + '%';
+    a.criteria.forEach(function (c) {
+      var row = document.querySelector('.crow[data-id="' + c.id + '"]'), cv = row.querySelector('.cv'), old = cv._v;
+      if (c.avg != null && old != null && Math.abs(c.avg - old) >= 0.005) {
+        var d = c.avg - old, dl = row.querySelector('.delta'); dl.textContent = (d > 0 ? '+' : '−') + Math.abs(d).toFixed(2); dl.className = 'delta show'; dl.style.color = d > 0 ? '#17794a' : '#c62828';
+        setTimeout(function () { dl.className = 'delta'; }, 2200); flash(cv, d > 0 ? 'up' : 'down');
+      }
+      countTo(cv, c.avg, 2, 900); row.querySelector('.bar > i').style.width = (c.avg == null ? 0 : c.avg * 10) + '%';
+    });
+    $('hide').style.display = v.showLive ? 'none' : 'block'; $('extra').style.display = v.showLive ? 'grid' : 'none';
+    if (a.hist) {
+      var mx = Math.max(1, Math.max.apply(null, a.hist)), bars = $('hist').children;
+      for (var i = 0; i < 10; i++) bars[i].style.height = (a.hist[i] / mx * 100) + '%';
+    }
+    if (a.feed) {
+      var f = $('feed'), top = a.feed.length ? a.feed[a.feed.length - 1].seq : 0;
+      a.feed.forEach(function (it) {
+        if (it.seq > lastSeq) { var d = document.createElement('div'); d.innerHTML = '🧑‍🎓 Một bạn vừa chấm <b>' + it.total.toFixed(2) + '</b>'; f.insertBefore(d, f.firstChild); }
+      });
+      while (f.children.length > 5) f.removeChild(f.lastChild); lastSeq = Math.max(lastSeq, top);
+    }
+  }
+  function updLobby(v) {
+    countTo($('jn'), v.joined, 0, 400);
+    var b = $('bub'), arr = v.bubbles || [];
+    if (arr.length < shownBubbles) { b.innerHTML = ''; shownBubbles = 0; }
+    for (var i = shownBubbles; i < arr.length; i++) { var e = document.createElement('i'); e.textContent = arr[i]; b.appendChild(e); }
+    shownBubbles = arr.length;
+  }
+  function buildEnded(v) {
+    var res = v.results.slice().sort(function (a, b) { return (b.total || 0) - (a.total || 0); }), top = res.slice(0, 3);
+    var pod = '';
+    var order = top.length >= 3 ? [1, 0, 2] : top.map(function (_, i) { return i; });
+    order.forEach(function (i) {
+      var g = top[i]; if (!g) return;
+      pod += '<div class="p p' + (i + 1) + '" style="animation-delay:' + (0.2 + i * 0.25) + 's"><div style="font-size:4.6vh">' + ['🥇', '🥈', '🥉'][i] + '</div><b>' + (g.total == null ? '—' : g.total.toFixed(2)) + '</b><div style="font-size:2.4vh;font-weight:700">' + esc(g.cls) + ' · Nhóm ' + g.group + '</div><div style="font-size:2vh;opacity:.8">' + esc(g.formLabel) + '</div></div>';
+    });
+    app.innerHTML = '<h1 style="font-size:6vh;text-align:center;margin:0">🏆 Kết quả buổi chấm</h1><div class="podium">' + pod + '</div><table><tr><th>Thứ tự trình bày</th><th>Lớp</th><th>Nhóm</th><th>Hình thức</th><th>Số lượt chấm</th><th style="text-align:right">Điểm</th></tr>' +
+      v.results.map(function (g) { return '<tr><td>' + g.order + '</td><td>' + esc(g.cls) + '</td><td>' + g.group + '</td><td>' + esc(g.formLabel) + '</td><td>' + g.n + '</td><td style="text-align:right"><b>' + (g.total == null ? '—' : g.total.toFixed(2)) + '</b></td></tr>'; }).join('') + '</table>';
+  }
+
+  function apply(v) {
+    offset = v.now - Date.now();
+    var m = v.phase + (v.active ? ':' + v.active.key : '');
+    if (m !== mode) {
+      mode = m;
+      if (v.phase === 'setup') app.innerHTML = '<div style="text-align:center;margin-top:20vh"><h1 style="font-size:5vh">Buổi chấm điểm</h1><p style="font-size:3vh;opacity:.8">Đang chuẩn bị...</p></div>';
+      else if (v.phase === 'lobby') buildLobby();
+      else if (v.phase === 'grading') { if (v.active) buildGrading(v); else app.innerHTML = '<div style="text-align:center;margin-top:20vh"><h1 style="font-size:5vh">Vui lòng chờ phần trình bày tiếp theo</h1></div>'; }
+      else { buildEnded(v); }
+    }
+    if (v.phase === 'lobby') updLobby(v);
+    if (v.phase === 'grading' && v.active) { updGrading(v); if (v.startsAt > now()) countdown(v); }
+  }
+  function tick() {
+    fetch('/api/screen').then(function (r) { return r.json(); }).then(apply).catch(function () {});
+  }
+  tick(); setInterval(tick, 800);
+})();
+</script>
+</body>
+</html>

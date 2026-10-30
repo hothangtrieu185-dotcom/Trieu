@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Giảng viên - Điều khiển buổi chấm</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap wide" id="app"></div>
+<script>
+(function () {
+  var app = document.getElementById('app');
+  var token = null; try { token = localStorage.getItem('cd_admin'); } catch (e) {}
+  var S = null, timer = null, busy = false, lastSig = '', notice = '';
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function api(path, opt) {
+    opt = opt || {}; opt.headers = Object.assign({ 'Authorization': 'Bearer ' + token }, opt.headers || {});
+    if (opt.json) { opt.method = 'POST'; opt.body = JSON.stringify(opt.json); opt.headers['Content-Type'] = 'application/json'; }
+    return fetch(path, opt).then(function (r) {
+      if (r.status === 401 && path !== '/api/admin/login') { token = null; try { localStorage.removeItem('cd_admin'); } catch (e) {} loginScreen(); throw new Error('login'); }
+      var ct = r.headers.get('content-type') || '';
+      if (ct.indexOf('json') < 0) return r;
+      return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Lỗi'); return j; });
+    });
+  }
+  function act(path, json, okMsg) {
+    return api(path, { json: json || {} }).then(function () { notice = ''; return load(true); }).catch(function (e) { if (e.message !== 'login') { notice = e.message; load(true); } });
+  }
+
+  function loginScreen(msg) {
+    stop(); app.innerHTML = '<div class="wrap"><div class="card"><h1>Giảng viên</h1><p class="muted">Nhập mật khẩu để điều khiển buổi chấm.</p><label for="pw">Mật khẩu</label><input id="pw" type="password">' +
+      (msg ? '<div class="err">' + esc(msg) + '</div>' : '') + '<div style="margin-top:14px"><button class="full" id="ok">Đăng nhập</button></div></div></div>';
+    var go = function () { fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: document.getElementById('pw').value }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error); return j; }); })
+      .then(function (j) { token = j.token; try { localStorage.setItem('cd_admin', token); } catch (e) {} load(true); start(); })
+      .catch(function (e) { loginScreen(e.message); }); };
+    document.getElementById('ok').onclick = go; document.getElementById('pw').onkeydown = function (e) { if (e.key === 'Enter') go(); };
+  }
+
+  var PHASE = { setup: 'Chuẩn bị', lobby: 'Phòng chờ', grading: 'Đang chấm', ended: 'Đã kết thúc' };
+  function groupName(g) { return g.cls + ' · Nhóm ' + g.group; }
+
+  function render() {
+    // không vẽ lại khi người dùng đang thao tác trên ô chọn
+    var ae = document.activeElement; if (ae && (ae.tagName === 'SELECT' || ae.tagName === 'INPUT')) return;
+    var h = '<div class="row" style="justify-content:space-between;margin-bottom:12px"><div><h1>Điều khiển buổi chấm</h1><span class="tag">' + PHASE[S.phase] + '</span> <span class="muted small">' + S.joined + '/' + S.total + ' sinh viên đã vào phòng</span></div>' +
+      '<div class="row"><a href="/screen" target="_blank"><button class="ghost">Mở màn hình chiếu</button></a><button class="ghost" id="rep">Tải báo cáo Excel</button></div></div>';
+    if (notice) h += '<div class="err" style="margin:0 0 12px">' + esc(notice) + '</div>';
+
+    // 1. danh sách lớp
+    if (S.phase === 'setup') {
+      h += '<div class="card"><h2>Bước 1. Danh sách lớp</h2><p class="muted small">Tải file bảng điểm (.xlsx) của từng lớp, hệ thống tự đọc MSSV, họ tên và nhóm.</p>' +
+        '<input type="file" id="files" accept=".xlsx" multiple style="margin-bottom:10px">' +
+        (S.classes.length ? '<table><tr><th>Lớp</th><th>Số sinh viên</th></tr>' + S.classes.map(function (c) { return '<tr><td>' + esc(c.cls) + '</td><td>' + c.count + '</td></tr>'; }).join('') + '</table>' : '<p class="muted">Chưa có danh sách.</p>') + '</div>';
+      // 2. hình thức
+      if (S.groups.length) {
+        h += '<div class="card"><h2>Bước 2. Hình thức dự án của từng nhóm</h2><p class="muted small">Chọn hình thức, bảng rubric sẽ tự hiện đúng theo hình thức đó cho sinh viên.</p><table><tr><th>Lớp</th><th>Nhóm</th><th>Số bạn</th><th>Hình thức</th></tr>';
+        S.groups.forEach(function (g) {
+          h += '<tr><td>' + esc(g.cls) + '</td><td>' + g.group + '</td><td>' + g.members + '</td><td><select data-k="' + esc(g.key) + '" class="fsel"><option value="">Chọn...</option>' +
+            Object.keys(S.forms).map(function (f) { return '<option value="' + f + '"' + (g.form === f ? ' selected' : '') + '>' + esc(S.forms[f].label) + '</option>'; }).join('') + '</select></td></tr>';
+        });
+        h += '</table><div style="margin-top:14px"><button class="accent" id="lobby"' + (S.groups.some(function (g) { return !g.form; }) ? ' disabled' : '') + '>Tạo mã QR và mở phòng chờ</button></div></div>';
+      }
+    }
+
+    // 3. phòng chờ
+    if (S.phase === 'lobby') {
+      h += '<div class="grid two"><div class="card center"><h2>Mã QR cho sinh viên</h2><div class="qrbox" style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:2px solid var(--brand)"><img src="/qr.svg" alt="QR" style="width:220px;height:220px;display:block"></div>' +
+        '<p class="small muted" id="url" style="margin-top:8px"></p><p class="small muted">Để chiếu QR lớn cho cả lớp, bấm "Mở màn hình chiếu".</p></div>' +
+        '<div class="card"><h2>Bước 3. Kích hoạt chấm</h2><p><b style="font-size:32px">' + S.joined + '</b> <span class="muted">/ ' + S.total + ' sinh viên đã vào</span></p>' +
+        '<label>Phần trình bày đầu tiên</label><select id="first">' + S.groups.map(function (g) { return '<option value="' + esc(g.key) + '">' + esc(groupName(g)) + ' (' + esc(g.formLabel) + ')</option>'; }).join('') + '</select>' +
+        '<div style="margin-top:14px"><button class="accent full" id="start">Kích hoạt hệ thống chấm (đếm ngược 5 giây)</button></div></div></div>';
+    }
+
+    // 4. đang chấm / kết thúc
+    if (S.phase === 'grading' || S.phase === 'ended') {
+      var ag = S.groups.filter(function (g) { return g.key === S.activeKey; })[0];
+      if (S.phase === 'grading' && ag) {
+        var pct = ag.eligible ? Math.round(ag.n / ag.eligible * 100) : 0;
+        h += '<div class="card" style="border-color:var(--accent)"><div class="row" style="justify-content:space-between"><div><span class="tag">Phần trình bày thứ ' + ag.order + '</span> <span class="tag warn">' + esc(ag.formLabel) + '</span>' +
+          '<h2 style="margin-top:8px">' + esc(groupName(ag)) + '</h2></div><div class="center"><div class="small muted">Điểm trung bình hiện tại</div><div style="font-size:44px;font-weight:800;color:var(--accent);line-height:1">' + (ag.total == null ? '—' : ag.total.toFixed(2)) + '</div></div></div>' +
+          '<div class="row small" style="margin:8px 0 4px"><span>Đã chấm <b>' + ag.n + '</b> / ' + ag.eligible + ' sinh viên đủ điều kiện</span><span class="tag ' + (S.open ? 'ok' : 'bad') + '">' + (S.open ? 'Đang mở chấm' : 'Đã đóng chấm') + '</span>' + (S.startsAt && (S.startsAt - (S.now + (Date.now() - S.fetchedAt))) > 0 ? '<span class="tag warn">Đang đếm ngược 5 giây</span>' : '') + '</div>' +
+          '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
+          '<div class="row" style="margin-top:14px">' + (S.open ? '<button id="close" class="danger">Đóng chấm nhóm này</button>' : '<button id="open">Mở lại chấm</button>') +
+          '<label class="row" style="margin:0;font-weight:500"><input type="checkbox" id="live"' + (S.showLive ? ' checked' : '') + '> Hiện điểm trực tiếp trên màn hình chiếu</label></div>' +
+          ((S.pending && S.pending.length) ? '<details style="margin-top:12px"><summary class="small"><b>' + S.pending.length + '</b> sinh viên chưa chấm</summary><p class="small muted" style="margin-top:8px">' + S.pending.map(function (p) { return esc(p.name) + ' (' + esc(p.mssv) + ')'; }).join(' · ') + '</p></details>' : '') + '</div>';
+      }
+      h += '<div class="card"><h2>' + (S.phase === 'ended' ? 'Kết quả' : 'Các phần trình bày') + '</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">';
+      S.groups.forEach(function (g) {
+        var act = g.key === S.activeKey && S.phase === 'grading';
+        h += '<div class="gcard' + (act ? ' active' : '') + '"><div class="row" style="justify-content:space-between"><b>' + esc(groupName(g)) + '</b><span class="tag warn">' + esc(g.formLabel) + '</span></div>' +
+          '<div class="small muted" style="margin:6px 0">' + (g.order ? 'Thứ ' + g.order + ' · ' + g.n + ' lượt chấm' : 'Chưa trình bày') + '</div>' +
+          '<div style="font-size:26px;font-weight:800">' + (g.total == null ? '—' : g.total.toFixed(2)) + '</div>' +
+          (S.phase === 'grading' && !act ? '<button class="' + (g.order ? 'ghost' : 'accent') + ' full gstart" data-k="' + esc(g.key) + '" style="margin-top:8px">' + (g.order ? 'Mở lại nhóm này' : 'Chuyển sang nhóm này') + '</button>' : '') + '</div>';
+      });
+      h += '</div></div>';
+      if (S.phase === 'grading') h += '<div class="card"><h2>Bước 5. Kết thúc buổi chấm</h2><p class="muted small">Sau khi kết thúc, sinh viên của từng nhóm sẽ thấy điểm tổng của nhóm mình trên điện thoại, và màn hình chiếu hiện bảng kết quả. Anh tải báo cáo Excel ở nút phía trên.</p><button class="danger" id="end">Kết thúc buổi chấm</button></div>';
+      if (S.phase === 'ended') h += '<div class="card"><p class="muted small">Buổi chấm đã kết thúc. Hãy tải báo cáo Excel trước khi bắt đầu buổi mới.</p><button class="ghost" id="reset">Bắt đầu buổi chấm mới (xóa toàn bộ điểm)</button></div>';
+    }
+    app.innerHTML = h; bind();
+  }
+
+  function modal(title, text, okLabel, cls, fn) {
+    var m = document.createElement('div'); m.className = 'modal';
+    m.innerHTML = '<div class="box"><h2>' + title + '</h2><p class="muted">' + text + '</p><div class="row"><button class="ghost" id="n">Hủy</button><button class="' + cls + '" id="y">' + okLabel + '</button></div></div>';
+    document.body.appendChild(m); m.querySelector('#n').onclick = function () { m.remove(); }; m.querySelector('#y').onclick = function () { m.remove(); fn(); };
+  }
+  function bind() {
+    var $ = function (id) { return document.getElementById(id); };
+    $('rep').onclick = function () {
+      api('/api/admin/report.xlsx').then(function (r) { return r.blob(); }).then(function (b) {
+        var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'bao-cao-cham-diem.xlsx'; document.body.appendChild(a); a.click(); a.remove();
+      });
+    };
+    if ($('files')) $('files').onchange = function () {
+      var fs = Array.prototype.slice.call(this.files); notice = '';
+      fs.reduce(function (p, f) { return p.then(function () { return f.arrayBuffer().then(function (buf) { return api('/api/admin/roster', { method: 'POST', body: buf, headers: { 'Content-Type': 'application/octet-stream' } }); }); }); }, Promise.resolve())
+        .then(function () { load(true); }).catch(function (e) { notice = e.message; load(true); });
+    };
+    document.querySelectorAll('.fsel').forEach(function (s) { s.onchange = function () { var o = {}; o[s.getAttribute('data-k')] = s.value || null; act('/api/admin/forms', { forms: o }); }; });
+    if ($('lobby')) $('lobby').onclick = function () { act('/api/admin/lobby'); };
+    if ($('start')) $('start').onclick = function () { act('/api/admin/start', { key: $('first').value }); };
+    if ($('url')) fetch('/api/public-url').then(function (r) { return r.json(); }).then(function (j) { if ($('url')) $('url').textContent = j.url; });
+    if ($('close')) $('close').onclick = function () { act('/api/admin/toggle', { open: false }); };
+    if ($('open')) $('open').onclick = function () { act('/api/admin/toggle', { open: true }); };
+    if ($('live')) $('live').onchange = function () { act('/api/admin/live', { show: this.checked }); };
+    document.querySelectorAll('.gstart').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-k'); modal('Chuyển nhóm?', 'Phần trình bày hiện tại sẽ đóng chấm và chuyển sang nhóm được chọn.', 'Chuyển', 'accent', function () { act('/api/admin/start', { key: k }); }); }; });
+    if ($('end')) $('end').onclick = function () { modal('Kết thúc buổi chấm?', 'Sinh viên sẽ không chấm thêm được nữa và điểm tổng được gửi về từng nhóm. Không thể hoàn tác.', 'Kết thúc', 'danger', function () { act('/api/admin/end'); }); };
+    if ($('reset')) $('reset').onclick = function () { modal('Xóa toàn bộ điểm?', 'Toàn bộ điểm và danh sách sinh viên đã vào phòng sẽ bị xóa. Hãy chắc rằng anh đã tải báo cáo Excel.', 'Xóa', 'danger', function () { act('/api/admin/reset', { confirm: 'XOA' }); }); };
+  }
+
+  function load(force) {
+    if (!token) return Promise.resolve();
+    return api('/api/admin/state').then(function (j) {
+      var sig = JSON.stringify(Object.assign({}, j, { now: 0 })); if (!force && sig === lastSig) return; lastSig = sig; S = j; S.fetchedAt = Date.now(); render();
+    }).catch(function () {});
+  }
+  function start() { stop(); timer = setInterval(function () { load(false); }, 2000); }
+  function stop() { if (timer) clearInterval(timer); timer = null; }
+
+  if (token) { load(true).then(function () { if (token) start(); }); } else loginScreen();
+})();
+</script>
+</body>
+</html>
