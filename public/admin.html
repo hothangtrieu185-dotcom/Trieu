@@ -77,7 +77,7 @@
     // chỉ hoãn vẽ lại khi đang mở ô chọn hình thức (tự làm mới); thao tác của giảng viên luôn vẽ lại ngay
     var ae = document.activeElement; if (!force && ae && ae.tagName === 'SELECT') return;
     var h = '<div class="row" style="justify-content:space-between;margin-bottom:12px"><div><h1>Điều khiển buổi chấm</h1><span class="tag">' + PHASE[S.phase] + '</span> <span class="muted small">' + S.joined + '/' + S.total + ' sinh viên đã vào phòng</span></div>' +
-      '<div class="row"><a href="/screen" target="_blank"><button class="ghost">Mở màn hình chiếu</button></a><button class="ghost" id="rep">Tải báo cáo Excel</button></div></div>';
+      '<div class="row"><a href="/screen" target="_blank"><button class="ghost">Mở màn hình chiếu</button></a><button class="ghost" id="rep">Tải báo cáo Excel</button><button class="ghost" id="logout">Đăng xuất</button></div></div>';
     if (notice) h += '<div class="err" style="margin:0 0 12px">' + esc(notice) + '</div>';
 
     // 1. danh sách lớp
@@ -145,6 +145,13 @@
   }
   function bind() {
     var $ = function (id) { return document.getElementById(id); };
+    $('logout').onclick = function () {
+      modal('Đăng xuất?', 'Buổi chấm vẫn tiếp tục chạy bình thường. Chỉ cần nhập lại mật khẩu để điều khiển.', 'Đăng xuất', 'accent', function () {
+        stop(); token = null; S = null; lastSig = '';
+        try { localStorage.removeItem('cd_admin'); } catch (e) {}
+        loginScreen();
+      });
+    };
     $('rep').onclick = function () {
       api('/api/admin/report.xlsx').then(function (r) { return r.blob(); }).then(function (b) {
         var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'bao-cao-cham-diem.xlsx'; document.body.appendChild(a); a.click(); a.remove();
