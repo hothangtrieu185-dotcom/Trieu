@@ -367,7 +367,9 @@ const server = http.createServer(async (req, res) => {
     if (p === '/qr.svg') {
       const proto = (req.headers['x-forwarded-proto'] || 'http').split(',')[0];
       const base = process.env.PUBLIC_URL || `${proto}://${req.headers.host}`;
-      const svg = await QRCode.toString(base + '/', { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+      const gk = new URL(req.url, 'http://x').searchParams.get('g');   // QR riêng của nhóm đang chấm
+      const target = gk && groupByKey(gk) ? base + '/?g=' + encodeURIComponent(gk) : base + '/';
+      const svg = await QRCode.toString(target, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
       res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' }); return res.end(svg);
     }
     if (p === '/api/public-url') { const proto = (req.headers['x-forwarded-proto'] || 'http').split(',')[0]; return send(res, 200, { url: (process.env.PUBLIC_URL || `${proto}://${req.headers.host}`) + '/' }); }

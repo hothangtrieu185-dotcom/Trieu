@@ -8,10 +8,12 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
+<div id="lo" class="center" style="display:none;padding:6px 0 26px"><button id="logout" class="ghost" style="font-size:14px;padding:8px 16px">Đăng xuất</button></div>
 <script>
 (function () {
   var app = document.getElementById('app');
   var token = null; try { token = localStorage.getItem('cd_token'); } catch (e) {}
+  var gParam = null, gDone = false; try { gParam = new URLSearchParams(location.search).get('g'); } catch (e) {}
   var view = null, lastSig = '', scores = {}, step = 0, offset = 0, timer = null, cdTimer = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -118,10 +120,32 @@
   }
 
   // ---------- điều phối ----------
-  function setView(j) { view = j; if (j.now) offset = j.now - Date.now(); }
+  function setView(j) { view = j; if (j.now) offset = j.now - Date.now(); var lo = document.getElementById('lo'); if (lo) lo.style.display = 'block'; }
+  function logout() {
+    if (!confirm('Đăng xuất khỏi phòng chấm? Các điểm đã gửi vẫn được giữ. Bạn chỉ cần nhập lại họ tên và MSSV để vào lại.')) return;
+    stopPolling(); clearInterval(cdTimer); token = null; view = null; lastSig = ''; scores = {}; step = 0; gParam = null; gDone = true;
+    try { localStorage.removeItem('cd_token'); } catch (e) {}
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    var lo = document.getElementById('lo'); if (lo) lo.style.display = 'none';
+    var cd = document.getElementById('cd'); if (cd) cd.remove();
+    joinScreen();
+  }
+  document.getElementById('logout').onclick = logout;
   function render(force) {
     if (!view) return;
     var a = view.active, counting = a && a.startsAt && now() < a.startsAt;
+    // QR của một nhóm: chỉ kiểm tra lần đầu, nếu không đúng nhóm đang chấm thì báo ngay
+    if (gParam && !gDone && view.phase === 'grading' && a) {
+      if (a.key === gParam) gDone = true;
+      else {
+        if (lastSig === 'gwarn' && !force) return;
+        lastSig = 'gwarn';
+        app.innerHTML = '<div class="card center anim-up" style="padding:26px 18px"><div class="emoji-float">⚠️</div><h1 style="margin-top:8px">Mã QR này không phải nhóm đang chấm</h1><p class="muted">Bạn vừa quét mã QR của một nhóm khác. Hiện đang chấm <b>phần trình bày thứ ' + esc(a.order) + '</b> (' + esc(a.formLabel) + '). Hãy nhìn lên màn hình chiếu để xác nhận.</p><button id="gok" style="margin-top:12px">Chấm phần trình bày đang diễn ra</button></div>' + who();
+        document.getElementById('gok').onclick = function () { gDone = true; render(true); };
+        return;
+      }
+    }
+    if (gParam && !gDone && view.phase === 'ended') gDone = true;
     var sig = [view.phase, a ? a.key + '|' + a.open + '|' + a.submitted + '|' + a.own + '|' + (counting ? 'cd' : '') : '', view.result ? 'r' : ''].join('~');
     if (!force && sig === lastSig) { liveUpdate(); return; }
     lastSig = sig;

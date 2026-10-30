@@ -48,8 +48,9 @@
   }
   function buildGrading(v) {
     var a = v.active;
-    app.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2vw;flex-wrap:wrap"><div><div style="font-size:3vh;opacity:.8">Phần trình bày thứ ' + a.order + '</div><h1 style="font-size:7.5vh;margin:0">' + esc(a.formLabel) + '</h1></div>' +
-      '<div style="font-size:2.8vh" id="status"></div></div>' +
+    app.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2vw;flex-wrap:wrap"><div><div style="font-size:3vh;opacity:.8">Phần trình bày thứ ' + a.order + '</div><div style="font-size:5vh;font-weight:800;margin:.4vh 0">' + esc(a.cls) + ' · Nhóm ' + esc(a.group) + '</div><h1 style="font-size:5vh;margin:0">' + esc(a.formLabel) + '</h1></div>' +
+      '<div style="display:flex;align-items:center;gap:1.6vw"><div style="text-align:right"><div style="font-size:2.8vh" id="status"></div><div style="font-size:2.2vh;opacity:.75;margin-top:.8vh">Quét mã để vào chấm<br>nhóm này</div></div>' +
+      '<div style="background:#fff;padding:.8vh;border-radius:1.2vh;border:2px solid currentColor"><img src="/qr.svg?g=' + encodeURIComponent(a.key) + '" alt="QR nhóm" style="height:15vh;width:15vh;display:block"></div></div></div>' +
       '<div class="sgrid"><div><div class="card-s" style="text-align:center"><div style="font-size:2.6vh;opacity:.8;margin-bottom:1vh">Điểm trung bình</div>' +
       '<div class="ring"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" fill="none" stroke-width="9"/><circle class="val" id="rv" cx="50" cy="50" r="45" fill="none" stroke-width="9" stroke-dasharray="' + C + '" stroke-dashoffset="' + C + '"/></svg>' +
       '<div class="mid"><b id="tot">—</b><span style="opacity:.7;font-size:2.4vh">/ 10</span></div></div>' +
