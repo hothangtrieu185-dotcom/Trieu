@@ -160,7 +160,8 @@ body.screen .lb-left .qrbox img{width:min(40vh,24vw);height:min(40vh,24vw)}
 .lb-cls span:last-child{text-align:right;font-weight:800;color:var(--brand)}
 .lb-bubwrap{flex:1;min-height:0;display:flex;flex-direction:column}
 .lb-bub{flex:1;min-height:0;overflow:hidden;display:flex;flex-wrap:wrap;align-content:flex-start;gap:1vh;padding:10px 0;--bs:44px}
-.lb-bub i{font-style:normal;width:var(--bs);height:var(--bs);font-size:calc(var(--bs)*.45);border-radius:50%;background:var(--accent);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;animation:pop .4s ease both,floaty 4.5s ease-in-out infinite}
+.lb-bub i{font-style:normal;width:var(--bs);height:var(--bs);font-size:calc(var(--bs)*.45);border-radius:50%;background:var(--accent);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;animation:pop .4s ease both}
+.lb-bub i:nth-child(4n){animation:pop .4s ease both,floaty 4.5s ease-in-out infinite;will-change:transform}
 .lb-bub i:nth-child(3n){background:var(--brand)}
 .lb-bub i:nth-child(5n){background:#b5405a}
 .lb-foot{text-align:center;font-size:2.4vh;opacity:.75;margin-top:1.6vh}
@@ -178,9 +179,9 @@ details.mem ol li{margin:2px 0}
 
 /* ===== phòng chờ sinh động ===== */
 body.screen .panel.lobby-on{position:relative}
-.lb-blob{position:absolute;border-radius:50%;filter:blur(40px);opacity:.5;pointer-events:none;z-index:0}
-.lb-blob.b1{width:42vh;height:42vh;background:#f3c9d4;left:-6vh;top:30vh;animation:drift 14s ease-in-out infinite}
-.lb-blob.b2{width:36vh;height:36vh;background:#fbe3ea;right:8vw;bottom:-8vh;animation:drift 18s ease-in-out infinite reverse}
+.lb-blob{position:absolute;border-radius:50%;opacity:.55;pointer-events:none;z-index:0;will-change:transform}
+.lb-blob.b1{width:46vh;height:46vh;background:radial-gradient(circle,#f3c9d4 0,rgba(243,201,212,0) 68%);left:-6vh;top:30vh;animation:drift 14s ease-in-out infinite}
+.lb-blob.b2{width:40vh;height:40vh;background:radial-gradient(circle,#fbe3ea 0,rgba(251,227,234,0) 68%);right:8vw;bottom:-8vh;animation:drift 18s ease-in-out infinite reverse}
 @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(4vw,-5vh) scale(1.15)}}
 .lb-head,.lb-main,.lb-foot{position:relative;z-index:1}
 .lb-head h1 .wave{display:inline-block;transform-origin:70% 70%;animation:wv 2.2s ease-in-out infinite}
@@ -190,10 +191,10 @@ body.screen .panel.lobby-on{position:relative}
 .lb-tag.ready{background:var(--brand);color:#fff;animation:readyp 1.2s ease-in-out infinite}
 .lb-tag.ready .dots{display:none}
 @keyframes readyp{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-.qrfx{position:relative;overflow:hidden;animation:fadeUp .6s ease both,qrglow 2.6s ease-in-out infinite}
+.qrfx{position:relative;overflow:hidden;animation:fadeUp .6s ease both}
 @keyframes qrglow{0%,100%{box-shadow:0 0 0 0 rgba(143,26,56,.35)}50%{box-shadow:0 0 0 1.6vh rgba(143,26,56,0)}}
-.qrfx .scan{position:absolute;left:0;right:0;top:0;height:7%;background:linear-gradient(180deg,transparent,rgba(143,26,56,.28),transparent);animation:scan 3.2s ease-in-out infinite;pointer-events:none}
-@keyframes scan{0%{top:-8%}100%{top:104%}}
+.qrfx .scan{position:absolute;left:0;right:0;top:0;height:7%;background:linear-gradient(180deg,transparent,rgba(143,26,56,.28),transparent);animation:scan 3.2s ease-in-out infinite;pointer-events:none;will-change:transform}
+@keyframes scan{0%{transform:translateY(-110%)}100%{transform:translateY(1450%)}}
 .lb-steps li{animation:slideIn .6s ease both}
 .lb-count{position:relative}
 .lb-count.bump .num{animation:bump .5s ease}
@@ -204,9 +205,8 @@ body.screen .panel.lobby-on{position:relative}
 .lb-ring .val{stroke:var(--accent);transition:stroke-dashoffset .8s ease}
 .lb-ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3.4vh;color:var(--brand)}
 .lb-cls .bar{overflow:hidden}
-.lb-cls .bar>i{background:repeating-linear-gradient(115deg,var(--accent) 0 14px,#b5405a 14px 28px);background-size:56px 100%;animation:stripes 1.2s linear infinite}
-@keyframes stripes{to{background-position:56px 0}}
-.lb-cls.full .bar>i{background:linear-gradient(90deg,#17794a,#2fa56b);animation:none;box-shadow:0 0 14px rgba(23,121,74,.5)}
+.lb-cls .bar>i{background:linear-gradient(90deg,var(--accent),#b5405a)}
+.lb-cls.full .bar>i{background:linear-gradient(90deg,#17794a,#2fa56b)}
 .lb-cls.full span{color:#17794a}
 .lb-bubhead{display:flex;align-items:center;justify-content:space-between;gap:1vw;margin-bottom:1vh;font-size:2.2vh;color:var(--muted)}
 .lb-feed{opacity:0;color:var(--brand);font-weight:700;background:var(--accent-soft);border-radius:99px;padding:.5vh 1.2vw}
@@ -246,3 +246,9 @@ body.screen .panel.lobby-on{position:relative}
 .qrsm .cn.bl{left:.4vh;bottom:.4vh;border-left-width:.4vh;border-bottom-width:.4vh}
 .qrsm .cn.br{right:.4vh;bottom:.4vh;border-right-width:.4vh;border-bottom-width:.4vh}
 @keyframes qrin{0%{transform:perspective(700px) rotateY(95deg) scale(.5);opacity:0}100%{transform:none;opacity:1}}
+
+/* vòng sáng QR dùng transform/opacity (nhẹ, không giật) */
+.qrfx::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 .5vh rgba(143,26,56,.35);animation:qrring 2.6s ease-in-out infinite;pointer-events:none}
+@keyframes qrring{0%,100%{opacity:.15}50%{opacity:1}}
+.qrsm{animation:qrin .9s cubic-bezier(.2,1.25,.4,1) both}
+.qrsm .scan{will-change:transform;animation:scan 2.6s ease-in-out infinite}

@@ -18,7 +18,7 @@
   fetch('/api/public-url').then(function (r) { return r.json(); }).then(function (j) { url = j.url; var u = $('url'); if (u) u.textContent = url; });
 
   function countTo(el, to, dec, ms) {
-    if (!el) return; var from = el._v == null ? 0 : el._v; el._v = to;
+    if (!el) return; if (el._v === to) return; var from = el._v == null ? 0 : el._v; el._v = to;
     if (to == null) { el.textContent = '—'; return; }
     var t0 = performance.now(); ms = ms || 800;
     (function f(t) { var p = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - p, 3); el.textContent = (from + (to - from) * e).toFixed(dec); if (p < 1) requestAnimationFrame(f); })(t0);
@@ -65,6 +65,7 @@
       document.body.appendChild(d); setTimeout(function (x) { x.remove(); }.bind(null, d), 1400);
     }
   }
+  function setT(el, t) { if (el && el.textContent !== String(t)) el.textContent = t; }
   function buildLobby() {
     app.innerHTML = '<div class="lb-blob b1"></div><div class="lb-blob b2"></div>' +
       '<div class="lb-head"><h1><span class="wave">🎤</span> Phòng chờ chấm điểm <span class="lb-cname" id="lcname"></span></h1><div class="lb-tag" id="ltag"><span class="pulse"></span><span id="ltxt">Đang chờ giảng viên bắt đầu</span><span class="dots"></span></div></div>' +
@@ -129,23 +130,34 @@
   }
   function updLobby(v) {
     var total = v.total || 0, newJ = v.joined - lb.joined;
-    countTo($('jn'), v.joined, 0, 400); $('jt').textContent = total; $('lcname').textContent = v.cls || '';
+    countTo($('jn'), v.joined, 0, 400); setT($('jt'), total); setT($('lcname'), v.cls || '');
     var pct = total ? Math.min(1, v.joined / total) : 0;
-    $('lring').style.strokeDashoffset = 263.9 * (1 - pct); $('lpct').textContent = Math.round(pct * 100) + '%';
+    var off = (263.9 * (1 - pct)).toFixed(1); if ($('lring')._o !== off) { $('lring')._o = off; $('lring').style.strokeDashoffset = off; } setT($('lpct'), Math.round(pct * 100) + '%');
     if (lb.ready && newJ > 0) {
       var c = $('lcount'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
       burst($('jn'), Math.min(26, 8 + newJ * 4), false);
     }
-    $('lcls').innerHTML = (v.classes || []).map(function (c) {
-      var full = c.total && c.joined >= c.total;
-      return '<div class="lb-cls' + (full ? ' full' : '') + '"><b>' + esc(c.cls) + (full ? ' ✅' : '') + '</b><div class="bar"><i style="width:' + (c.total ? Math.round(c.joined / c.total * 100) : 0) + '%"></i></div><span>' + c.joined + ' / ' + c.total + '</span></div>';
-    }).join('');
+    var csig = JSON.stringify(v.classes || []), lc = $('lcls');
+    if (lc._sig !== csig) {   // chỉ vẽ lại khi số liệu thật sự đổi, tránh giật hình
+      lc._sig = csig;
+      var rowsEl = lc.children;
+      if (rowsEl.length !== (v.classes || []).length) {
+        lc.innerHTML = (v.classes || []).map(function () { return '<div class="lb-cls"><b></b><div class="bar"><i style="width:0%"></i></div><span></span></div>'; }).join('');
+      }
+      (v.classes || []).forEach(function (c, i) {
+        var row = lc.children[i], full = c.total && c.joined >= c.total;
+        row.classList.toggle('full', !!full);
+        setT(row.querySelector('b'), c.cls + (full ? ' ✅' : ''));
+        row.querySelector('.bar > i').style.width = (c.total ? Math.round(c.joined / c.total * 100) : 0) + '%';
+        setT(row.querySelector('span'), c.joined + ' / ' + c.total);
+      });
+    }
     (v.classes || []).forEach(function (c) {
       if (c.total && c.joined >= c.total && !lb.full[c.cls]) { lb.full[c.cls] = 1; if (lb.ready) { var rows = document.querySelectorAll('.lb-cls.full'); burst(rows[rows.length - 1], 36, true); } }
     });
     var tag = $('ltag'), all = total && v.joined >= total;
     tag.classList.toggle('ready', !!all);
-    $('ltxt').textContent = all ? '🎉 Đã đủ cả lớp, sẵn sàng bắt đầu!' : 'Đang chờ giảng viên bắt đầu';
+    setT($('ltxt'), all ? '🎉 Đã đủ cả lớp, sẵn sàng bắt đầu!' : 'Đang chờ giảng viên bắt đầu');
     var b = $('bub'), arr = v.bubbles || [];
     if (arr.length < shownBubbles) { b.innerHTML = ''; shownBubbles = 0; }
     var fresh = lb.ready ? arr.slice(shownBubbles) : [];
@@ -161,8 +173,9 @@
       f.classList.add('show');
     }
     // tự co giãn kích thước bong bóng để luôn vừa khung, không bị trôi mất
-    var w = b.clientWidth, h = b.clientHeight, n = Math.max(arr.length, 1);
-    if (w && h) {
+    var w = b.clientWidth, h = b.clientHeight, n = Math.max(arr.length, 1), bsig = w + 'x' + h + 'x' + n;
+    if (w && h && b._bsig !== bsig) {
+      b._bsig = bsig;
       var sz = Math.max(22, Math.min(56, Math.floor(Math.sqrt(w * h / n)) - 10));
       b.style.setProperty('--bs', sz + 'px');
       while (b.scrollHeight > b.clientHeight + 1 && sz > 22) { sz -= 2; b.style.setProperty('--bs', sz + 'px'); }
