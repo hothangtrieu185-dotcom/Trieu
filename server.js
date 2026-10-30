@@ -391,7 +391,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/api/public-url') { const proto = (req.headers['x-forwarded-proto'] || 'http').split(',')[0]; return send(res, 200, { url: (process.env.PUBLIC_URL || `${proto}://${req.headers.host}`) + '/' }); }
     if (p.startsWith('/api/admin/')) return await apiAdmin(req, res, url);
-    const f = PAGES[p] || (p === '/style.css' ? 'style.css' : null);
+    const f = PAGES[p] || ({ '/style.css': 'style.css', '/theme.css': 'theme.css', '/doodle.js': 'doodle.js' })[p] || null;
     if (f) { res.writeHead(200, { 'Content-Type': MIME[path.extname(f)], 'Cache-Control': 'no-cache' }); return res.end(fs.readFileSync(path.join(__dirname, 'public', f))); }
     res.writeHead(404); res.end('Không tìm thấy');
   } catch (e) { console.error(e); if (!res.headersSent) fail(res, 500, 'Lỗi máy chủ'); else res.end(); }

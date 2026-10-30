@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Chấm điểm phần trình bày</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,600;0,700;0,800;1,800&family=Itim&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/theme.css">
+<script src="/doodle.js"></script>
 </head>
 <body>
 <div class="wrap" id="app"></div>
@@ -28,7 +32,7 @@
 
   // ---------- vào phòng ----------
   function joinScreen(msg) {
-    app.innerHTML = '<div class="hero anim-up"><div class="emoji-float">🎤</div><h1>Chấm điểm phần trình bày</h1><p class="muted" style="margin:6px 0 0">Nhập thông tin để vào phòng chấm và cùng đánh giá các nhóm.</p></div>' +
+    app.innerHTML = '<div class="hero anim-up"><h1>Chấm điểm phần trình bày</h1><p class="muted" style="margin:6px 0 0">Nhập thông tin để vào phòng chấm và cùng đánh giá các nhóm.</p>' + DOODLE() + '</div>' +
       '<div class="card anim-up" style="animation-delay:.1s"><label for="nm" style="margin-top:0">Họ và tên</label><input id="nm" type="text" autocomplete="name" placeholder="Ví dụ: Nguyễn Văn An">' +
       '<label for="ms">MSSV</label><input id="ms" type="text" autocapitalize="characters" autocomplete="off" placeholder="Ví dụ: DE201433">' +
       (msg ? '<div class="err">' + esc(msg) + '</div>' : '') +
@@ -151,7 +155,7 @@
     lastSig = sig;
     var old = document.getElementById('cd'); if (old && !counting) { old.remove(); clearInterval(cdTimer); cdTimer = null; }
     if (view.phase === 'lobby') {
-      app.innerHTML = '<div class="card center anim-up" style="padding:28px 18px"><div class="emoji-float">✅</div><h1 style="margin-top:8px">Đã ghi nhận!</h1><p>Xin chào <b>' + esc(view.me.name) + '</b></p>' +
+      app.innerHTML = '<div class="card center anim-up" style="padding:28px 18px">' + DOODLE() + '<h1 style="margin-top:8px">Đã ghi nhận!</h1><p>Xin chào <b>' + esc(view.me.name) + '</b></p>' +
         '<div class="notice"><b>⚠️ Lưu ý quan trọng</b><br>Bạn thuộc <b>Nhóm ' + esc(view.me.group) + '</b> (lớp ' + esc(view.me.cls) + '). Khi nhóm bạn trình bày, bạn <b>không được chấm điểm</b> vì đó là bài dự thi của chính bạn. Các nhóm khác bạn chấm bình thường.</div>' +
         '<p class="muted"><span class="pulse"></span>Vui lòng chờ giảng viên bắt đầu chấm</p><div style="margin-top:14px"><div class="muted small">Đã có</div><div class="bigval set" id="cnt" style="font-size:64px">' + view.joined + '</div><div class="muted small">bạn trong phòng</div></div></div>' + who();
     } else if (view.phase === 'grading') {
@@ -165,7 +169,7 @@
       var r = view.result;
       if (r && r.total != null) {
         var rows = r.criteria.map(function (c) { return '<div class="rev" style="cursor:default"><span>' + esc(c.name) + '</span><b>' + (c.avg == null ? '–' : c.avg.toFixed(2)) + '</b></div>'; }).join('');
-        app.innerHTML = '<div class="hero center anim-up"><div class="emoji-float">🏆</div><h1>Kết quả nhóm của bạn</h1><p class="muted">' + esc(r.formLabel) + ' · ' + r.n + ' lượt chấm</p><div style="font-size:72px;font-weight:900;line-height:1.1" id="fin">0.00</div><p class="muted">Điểm trung bình (thang 10)</p></div>' +
+        app.innerHTML = '<div class="hero center anim-up">' + DOODLE() + '<h1>Kết quả nhóm của bạn</h1><p class="muted">' + esc(r.formLabel) + ' · ' + r.n + ' lượt chấm</p><div style="font-size:72px;font-weight:900;line-height:1.1" id="fin">0.00</div><p class="muted">Điểm trung bình (thang 10)</p></div>' +
           '<div class="card anim-up" style="animation-delay:.15s"><h3>Điểm theo từng tiêu chí</h3>' + rows + '</div>' + who();
         countUp(document.getElementById('fin'), r.total); confetti();
       } else waiting('🎉', 'Buổi chấm đã kết thúc', 'Cảm ơn bạn đã tham gia đánh giá.');

@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Màn hình chấm điểm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,600;0,700;0,800;1,800&family=Itim&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/theme.css">
+<script src="/doodle.js"></script>
 </head>
 <body class="screen">
 <div class="panel" id="app"></div>
@@ -61,14 +65,14 @@
     for (var k = 0; k < n; k++) {
       var d = document.createElement('i'); d.className = 'bst';
       var ang = Math.random() * Math.PI * 2, dist = (big ? 14 : 7) + Math.random() * (big ? 22 : 12);
-      d.style.cssText = 'left:' + (r.left + r.width / 2) + 'px;top:' + (r.top + r.height / 2) + 'px;--dx:' + (Math.cos(ang) * dist).toFixed(1) + 'vh;--dy:' + (Math.sin(ang) * dist).toFixed(1) + 'vh;background:' + ['#6b0f2a', '#8f1a38', '#c2476a', '#f0b6c5', '#e0a526'][k % 5];
+      d.style.cssText = 'left:' + (r.left + r.width / 2) + 'px;top:' + (r.top + r.height / 2) + 'px;--dx:' + (Math.cos(ang) * dist).toFixed(1) + 'vh;--dy:' + (Math.sin(ang) * dist).toFixed(1) + 'vh;background:' + ['#1f5d46', '#8f1a38', '#5b8a72', '#e0a526', '#f0b6c5'][k % 5];
       document.body.appendChild(d); setTimeout(function (x) { x.remove(); }.bind(null, d), 1400);
     }
   }
   function setT(el, t) { if (el && el.textContent !== String(t)) el.textContent = t; }
   function buildLobby() {
     app.innerHTML = '<div class="lb-blob b1"></div><div class="lb-blob b2"></div>' +
-      '<div class="lb-head"><h1><span class="wave">🎤</span> Phòng chờ chấm điểm <span class="lb-cname" id="lcname"></span></h1><div class="lb-tag" id="ltag"><span class="pulse"></span><span id="ltxt">Đang chờ giảng viên bắt đầu</span><span class="dots"></span></div></div>' +
+      '<div class="lb-head"><h1>Phòng chờ chấm điểm <span class="lb-cname" id="lcname"></span>' + DOODLE() + '</h1><div class="lb-tag" id="ltag"><span class="pulse"></span><span id="ltxt">Đang chờ giảng viên bắt đầu</span><span class="dots"></span></div></div>' +
       '<div class="lb-main"><div class="lb-left"><div class="qrwrap"><div class="qr-call">📱 Quét tôi!</div><div class="qrbox qrfx anim-up"><img src="/qr.svg" alt="QR"><i class="scan"></i><i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i></div></div>' +
       '<ol class="lb-steps"><li style="animation-delay:.2s"><b>1</b>Quét mã QR bằng điện thoại</li><li style="animation-delay:.4s"><b>2</b>Nhập họ tên và MSSV</li><li style="animation-delay:.6s"><b>3</b>Chờ giảng viên bắt đầu chấm</li></ol><div class="lb-url" id="url">' + esc(url) + '</div></div>' +
       '<div class="lb-right"><div class="lb-card lb-count" id="lcount"><div class="num" id="jn">0</div><div class="of">/ <span id="jt">0</span></div><div class="lab">sinh viên<br>đã vào phòng</div><div class="lb-ring"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="42" fill="none" stroke-width="10"/><circle class="val" id="lring" cx="50" cy="50" r="42" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg><b id="lpct">0%</b></div></div>' +
