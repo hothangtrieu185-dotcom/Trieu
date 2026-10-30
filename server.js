@@ -74,23 +74,26 @@ async function parseRoster(buf) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buf);
   const ws = wb.worksheets[0];
+  const norm = (v) => String(v == null ? '' : v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const ALIAS = { mssv: ['rollnumber', 'masosv', 'mssv', 'masv', 'studentid', 'studentcode'], name: ['fullname', 'hovaten', 'hoten', 'name'], group: ['group', 'nhom'], cls: ['class', 'lop'], leader: ['leader', 'nhomtruong'] };
   let hdr = null; const cols = {};
   ws.eachRow((row, n) => {
     if (hdr) return;
     const vals = row.values.map((v) => (v && v.text ? v.text : v));
-    if (vals.some((v) => String(v).trim() === 'RollNumber')) {
-      hdr = n; vals.forEach((v, i) => { if (v) cols[String(v).trim()] = i; });
-    }
+    const found = {};
+    vals.forEach((v, i) => { const k = norm(v); if (!k) return; for (const f in ALIAS) if (!found[f] && ALIAS[f].includes(k)) found[f] = i; });
+    if (found.mssv && found.name && found.group) { hdr = n; Object.assign(cols, found); }
   });
-  if (!hdr || !cols.FullName || !cols.Group || !cols.Class) throw new Error('Không tìm thấy các cột Class, RollNumber, FullName, Group');
+  if (!hdr) throw new Error('Không tìm thấy hàng tiêu đề có cột MSSV (RollNumber / Mã số SV), Họ tên (FullName / Họ và tên) và Nhóm (Group / Nhóm)');
   const out = [];
   ws.eachRow((row, n) => {
     if (n <= hdr) return;
     const g = (c) => { const v = row.getCell(cols[c]).value; return v && v.text ? v.text : v; };
-    const mssv = String(g('RollNumber') || '').trim().toUpperCase();
-    const group = Number(g('Group'));
+    const mssv = String(g('mssv') || '').trim().toUpperCase();
+    const gm = String(g('group') == null ? '' : g('group')).match(/\d+/);   // "Nhóm 2" hoặc 2
+    const group = gm ? Number(gm[0]) : 0;
     if (!/^[A-Z]{2,}\d{3,}$/.test(mssv) || !Number.isInteger(group) || group < 1) return;  // bỏ dòng trống, dòng ghi chú
-    out.push({ cls: String(g('Class') || '').trim(), mssv, name: String(g('FullName') || '').trim(), group, leader: cols.Leader ? /leader/i.test(String(g('Leader') || '')) : false });
+    out.push({ cls: cols.cls ? String(g('cls') || '').trim() : '', mssv, name: String(g('name') || '').trim(), group, leader: cols.leader ? /leader|trưởng/i.test(String(g('leader') || '')) : false });
   });
   return out;
 }
