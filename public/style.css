@@ -142,3 +142,6 @@ body.screen{overflow-x:hidden}
 .podium .p{flex:1;max-width:260px;text-align:center;border-radius:18px 18px 0 0;padding:2vh 1vw;animation:fadeUp .6s ease both}
 .podium .p1{background:var(--brand);color:#fff;height:30vh}.podium .p2{background:#a8324f;color:#fff;height:22vh}.podium .p3{background:#e9c4ce;color:var(--brand);height:17vh}
 .podium b{font-size:5vh;display:block}
+.notice{background:var(--accent-soft);border-left:5px solid var(--accent);border-radius:10px;padding:12px 14px;margin:14px 0;text-align:left;font-size:15px;line-height:1.5;color:var(--ink)}
+details.mem summary{cursor:pointer;color:var(--ink)}
+details.mem ol li{margin:2px 0}

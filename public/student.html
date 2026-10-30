@@ -31,7 +31,7 @@
       '<label for="ms">MSSV</label><input id="ms" type="text" autocapitalize="characters" autocomplete="off" placeholder="Ví dụ: DE201433">' +
       (msg ? '<div class="err">' + esc(msg) + '</div>' : '') +
       '<div style="margin-top:16px"><button class="accent full" id="go" style="padding:15px;font-size:17px">Vào phòng chấm</button></div>' +
-      '<p class="muted small" style="margin:12px 0 0">🔒 Chỉ giảng viên biết bạn đã chấm gì. Các nhóm được chấm không biết ai đã chấm.</p></div>';
+      '<div class="notice" style="margin-bottom:0"><b>⚠️ Lưu ý:</b> bạn không được chấm điểm nhóm của mình (bài dự thi của chính bạn).</div><p class="muted small" style="margin:12px 0 0">🔒 Chỉ giảng viên biết bạn đã chấm gì. Các nhóm được chấm không biết ai đã chấm.</p></div>';
     var go = document.getElementById('go');
     go.onclick = function () {
       go.disabled = true; go.textContent = 'Đang kiểm tra...';
@@ -128,6 +128,7 @@
     var old = document.getElementById('cd'); if (old && !counting) { old.remove(); clearInterval(cdTimer); cdTimer = null; }
     if (view.phase === 'lobby') {
       app.innerHTML = '<div class="card center anim-up" style="padding:28px 18px"><div class="emoji-float">✅</div><h1 style="margin-top:8px">Đã ghi nhận!</h1><p>Xin chào <b>' + esc(view.me.name) + '</b></p>' +
+        '<div class="notice"><b>⚠️ Lưu ý quan trọng</b><br>Bạn thuộc <b>Nhóm ' + esc(view.me.group) + '</b> (lớp ' + esc(view.me.cls) + '). Khi nhóm bạn trình bày, bạn <b>không được chấm điểm</b> vì đó là bài dự thi của chính bạn. Các nhóm khác bạn chấm bình thường.</div>' +
         '<p class="muted"><span class="pulse"></span>Vui lòng chờ giảng viên bắt đầu chấm</p><div style="margin-top:14px"><div class="muted small">Đã có</div><div class="bigval set" id="cnt" style="font-size:64px">' + view.joined + '</div><div class="muted small">bạn trong phòng</div></div></div>' + who();
     } else if (view.phase === 'grading') {
       if (!a) return waiting('⏳', 'Vui lòng chờ', 'Giảng viên đang chuẩn bị phần trình bày tiếp theo.');

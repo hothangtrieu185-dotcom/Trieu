@@ -90,7 +90,7 @@ async function parseRoster(buf) {
     const mssv = String(g('RollNumber') || '').trim().toUpperCase();
     const group = Number(g('Group'));
     if (!/^[A-Z]{2,}\d{3,}$/.test(mssv) || !Number.isInteger(group) || group < 1) return;  // bỏ dòng trống, dòng ghi chú
-    out.push({ cls: String(g('Class') || '').trim(), mssv, name: String(g('FullName') || '').trim(), group });
+    out.push({ cls: String(g('Class') || '').trim(), mssv, name: String(g('FullName') || '').trim(), group, leader: cols.Leader ? /leader/i.test(String(g('Leader') || '')) : false });
   });
   return out;
 }
@@ -193,7 +193,9 @@ function screenView() {
 
 // ---------- API giảng viên ----------
 function adminView() {
-  const groups = S.groups.map((g) => Object.assign(publicGroup(g), statsFor(g.key), { eligible: eligibleCount(g), members: S.roster.filter((r) => sameGroup(r, g)).length }));
+  const groups = S.groups.map((g) => Object.assign(publicGroup(g), statsFor(g.key), { eligible: eligibleCount(g), members: S.roster.filter((r) => sameGroup(r, g)).length,
+    list: S.roster.filter((r) => sameGroup(r, g)).map((r) => ({ mssv: r.mssv, name: r.name, leader: !!r.leader, joined: !!S.students[r.mssv] }))
+      .sort((a, b) => (b.leader - a.leader) || a.name.localeCompare(b.name, 'vi')) }));
   const classes = [...new Set(S.roster.map((r) => r.cls))].map((c) => ({ cls: c, count: S.roster.filter((r) => r.cls === c).length }));
   const v = { now: Date.now(), startsAt: S.startsAt, phase: S.phase, activeKey: S.activeKey, open: S.open, showLive: S.showLive, classes, groups,
     joined: Object.keys(S.students).length, total: S.roster.length, forms: Object.fromEntries(Object.entries(RUBRICS).map(([k, f]) => [k, { label: f.label, criteria: f.criteria }])) };
@@ -300,6 +302,14 @@ async function apiAdmin(req, res, url) {
   if (p === '/api/admin/toggle') {
     if (S.phase !== 'grading') return fail(res, 409, 'Chưa kích hoạt chấm.');
     S.open = !!b.open; save(); return send(res, 200, { ok: true });
+  }
+  if (p === '/api/admin/resetgroup') {   // xóa toàn bộ điểm của một nhóm (phòng khi lỗi), các bạn đã chấm sẽ chấm lại được
+    const g = groupByKey(b.key);
+    if (!g) return fail(res, 400, 'Không tìm thấy nhóm.');
+    if (S.phase !== 'grading') return fail(res, 409, 'Chỉ reset điểm được khi đang trong buổi chấm.');
+    const before = S.ratings.length;
+    S.ratings = S.ratings.filter((r) => r.key !== g.key);
+    save(); return send(res, 200, { ok: true, removed: before - S.ratings.length });
   }
   if (p === '/api/admin/live') { S.showLive = !!b.show; save(); return send(res, 200, { ok: true }); }
   if (p === '/api/admin/end') {
