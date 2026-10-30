@@ -66,7 +66,8 @@
     if (S.phase === 'setup') {
       h += '<div class="card"><h2>Bước 1. Danh sách lớp</h2><p class="muted small">Tải file bảng điểm (.xlsx) của từng lớp, hệ thống tự đọc MSSV, họ tên và nhóm.</p>' +
         '<input type="file" id="files" accept=".xlsx" multiple style="margin-bottom:10px">' +
-        (S.classes.length ? '<table><tr><th>Lớp</th><th>Số sinh viên</th></tr>' + S.classes.map(function (c) { return '<tr><td>' + esc(c.cls) + '</td><td>' + c.count + '</td></tr>'; }).join('') + '</table>' : '<p class="muted">Chưa có danh sách.</p>') + '</div>';
+        (S.classes.length ? '<table><tr><th>Lớp</th><th>Số sinh viên</th><th></th></tr>' + S.classes.map(function (c) { return '<tr><td>' + esc(c.cls) + '</td><td>' + c.count + '</td><td style="text-align:right"><button class="ghost cdel" data-c="' + esc(c.cls) + '" style="padding:6px 12px;font-size:14px">Xóa lớp này</button></td></tr>'; }).join('') + '</table>' +
+          (S.classes.length > 1 ? '<div style="margin-top:10px"><button class="ghost cdel" data-c="" style="padding:6px 12px;font-size:14px">Xóa tất cả danh sách</button></div>' : '') : '<p class="muted">Chưa có danh sách.</p>') + '</div>';
       // 2. tạo phòng chờ (hình thức từng nhóm được chọn lúc nhóm đó trình bày)
       if (S.groups.length) {
         h += '<div class="card"><h2>Bước 2. Mở phòng chờ</h2><p class="muted small">Hình thức dự án (Workshop, Video, Fanpage Facebook) anh chọn riêng cho từng nhóm ngay lúc nhóm đó chuẩn bị trình bày.</p><table><tr><th>Lớp</th><th>Nhóm</th><th>Số bạn</th><th>Danh sách thành viên</th></tr>' +
@@ -144,6 +145,12 @@
       };
     });
     if ($('first')) $('first').onchange = function () { pick.first = this.value; };
+    document.querySelectorAll('.cdel').forEach(function (b) {
+      b.onclick = function () {
+        var c = b.getAttribute('data-c');
+        modal(c ? 'Xóa danh sách lớp ' + esc(c) + '?' : 'Xóa tất cả danh sách lớp?', c ? 'Danh sách sinh viên và các nhóm của lớp này sẽ bị xóa khỏi hệ thống. Anh có thể tải lại file bất kỳ lúc nào.' : 'Danh sách sinh viên của mọi lớp sẽ bị xóa khỏi hệ thống. Anh có thể tải lại file bất kỳ lúc nào.', 'Xóa', 'danger', function () { act('/api/admin/roster/delete', { cls: c }); });
+      };
+    });
     document.querySelectorAll('details.mem').forEach(function (d) { d.addEventListener('toggle', function () { openDet[d.getAttribute('data-k')] = d.open; }); });
     document.querySelectorAll('.greset').forEach(function (b) {
       b.onclick = function () {

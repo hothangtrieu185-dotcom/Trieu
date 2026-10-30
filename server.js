@@ -276,6 +276,13 @@ async function apiAdmin(req, res, url) {
     return send(res, 200, { ok: true, added: rows.length });
   }
   const b = await readJson(req);
+  if (p === '/api/admin/roster/delete') {   // xóa danh sách một lớp (hoặc tất cả) khi chưa mở phòng chờ
+    if (S.phase !== 'setup') return fail(res, 409, 'Chỉ xóa được danh sách lớp khi chưa mở phòng chờ.');
+    const before = S.roster.length;
+    S.roster = b.cls ? S.roster.filter((r) => r.cls !== b.cls) : [];
+    rebuildGroups(); save();
+    return send(res, 200, { ok: true, removed: before - S.roster.length });
+  }
   if (p === '/api/admin/forms') {
     if (S.phase !== 'setup' && S.phase !== 'lobby') return fail(res, 409, 'Không đổi hình thức được khi đang chấm.');
     for (const [key, form] of Object.entries(b.forms || {})) { const g = groupByKey(key); if (g && (RUBRICS[form] || form === null)) g.form = form; }
