@@ -187,8 +187,10 @@ async function apiRate(req, res) {
 function screenView() {
   const v = { now: Date.now(), startsAt: S.startsAt, phase: S.phase, joined: Object.keys(S.students).length, showLive: S.showLive };
   if (S.phase === 'lobby') {
-    v.bubbles = Object.values(S.students).sort((a, b) => a.joinedAt - b.joinedAt).slice(-80)
+    v.bubbles = Object.values(S.students).sort((a, b) => a.joinedAt - b.joinedAt).slice(-200)
       .map((st) => (st.name.trim().split(/\s+/).pop() || '?').charAt(0).toUpperCase());
+    v.total = S.roster.length;   // chỉ là số lượng, không lộ thông tin cá nhân
+    v.classes = [...new Set(S.roster.map((r) => r.cls))].map((c) => ({ cls: c, total: S.roster.filter((r) => r.cls === c).length, joined: Object.values(S.students).filter((st) => st.cls === c).length }));
   }
   const g = groupByKey(S.activeKey);
   if (S.phase === 'grading' && g) {

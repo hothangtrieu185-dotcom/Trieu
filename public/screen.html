@@ -41,6 +41,16 @@
 
   // ---------- dựng khung ----------
   function buildLobby() {
+    app.innerHTML = '<div class="lb-head"><h1>Phòng chờ chấm điểm</h1><div class="lb-tag"><span class="pulse"></span>Đang chờ giảng viên bắt đầu</div></div>' +
+      '<div class="lb-main"><div class="lb-left"><div class="qrbox anim-up"><img src="/qr.svg" alt="QR"></div>' +
+      '<ol class="lb-steps"><li><b>1</b>Quét mã QR bằng điện thoại</li><li><b>2</b>Nhập họ tên và MSSV</li><li><b>3</b>Chờ giảng viên bắt đầu chấm</li></ol><div class="lb-url" id="url">' + esc(url) + '</div></div>' +
+      '<div class="lb-right"><div class="lb-card lb-count"><div class="num" id="jn">0</div><div class="of">/ <span id="jt">0</span></div><div class="lab">sinh viên<br>đã vào phòng</div></div>' +
+      '<div class="lb-card lb-classes" id="lcls"></div>' +
+      '<div class="lb-card lb-bubwrap"><div class="bubbles-title" style="font-size:2.2vh;opacity:.7;margin-bottom:1vh">Những bạn đã vào phòng</div><div class="lb-bub" id="bub"></div></div></div></div>' +
+      '<div class="lb-foot">Vui lòng giữ nguyên màn hình điện thoại, buổi chấm sẽ bắt đầu ngay khi giảng viên kích hoạt.</div>';
+    shownBubbles = 0;
+  }
+  function buildLobbyOld() {
     app.innerHTML = '<div style="display:flex;gap:5vw;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:3vh"><div class="qrbox anim-up"><img src="/qr.svg" alt="QR"></div>' +
       '<div style="max-width:620px"><h1 style="font-size:5.5vh;margin-bottom:12px">Quét mã QR để vào chấm điểm</h1><p style="font-size:3vh;opacity:.85">Nhập họ tên và MSSV của bạn. Sau khi vào phòng, vui lòng chờ giảng viên bắt đầu.</p>' +
       '<p style="font-size:2.4vh;opacity:.7;word-break:break-all" id="url">' + esc(url) + '</p><div style="margin-top:2vh;opacity:.85;font-size:3vh">Đã vào phòng</div><div class="num" id="jn">0</div><div class="bubbles" id="bub"></div></div></div>';
@@ -94,11 +104,21 @@
     }
   }
   function updLobby(v) {
-    countTo($('jn'), v.joined, 0, 400);
+    countTo($('jn'), v.joined, 0, 400); $('jt').textContent = v.total || 0;
+    $('lcls').innerHTML = (v.classes || []).map(function (c) {
+      return '<div class="lb-cls"><b>' + esc(c.cls) + '</b><div class="bar"><i style="width:' + (c.total ? Math.round(c.joined / c.total * 100) : 0) + '%"></i></div><span>' + c.joined + ' / ' + c.total + '</span></div>';
+    }).join('');
     var b = $('bub'), arr = v.bubbles || [];
     if (arr.length < shownBubbles) { b.innerHTML = ''; shownBubbles = 0; }
-    for (var i = shownBubbles; i < arr.length; i++) { var e = document.createElement('i'); e.textContent = arr[i]; b.appendChild(e); }
+    for (var i = shownBubbles; i < arr.length; i++) { var e = document.createElement('i'); e.textContent = arr[i]; e.style.animationDelay = '0s,' + ((i % 9) * 0.4) + 's'; b.appendChild(e); }
     shownBubbles = arr.length;
+    // tự co giãn kích thước bong bóng để luôn vừa khung, không bị trôi mất
+    var w = b.clientWidth, h = b.clientHeight, n = Math.max(arr.length, 1);
+    if (w && h) {
+      var sz = Math.max(22, Math.min(56, Math.floor(Math.sqrt(w * h / n)) - 10));
+      b.style.setProperty('--bs', sz + 'px');
+      while (b.scrollHeight > b.clientHeight + 1 && sz > 22) { sz -= 2; b.style.setProperty('--bs', sz + 'px'); }
+    }
   }
   function buildEnded(v) {
     var res = v.results.slice().sort(function (a, b) { return (b.total || 0) - (a.total || 0); }), top = res.slice(0, 3);
@@ -116,7 +136,7 @@
     offset = v.now - Date.now();
     var m = v.phase + (v.active ? ':' + v.active.key : '');
     if (m !== mode) {
-      mode = m;
+      mode = m; app.classList.toggle('lobby-on', v.phase === 'lobby');
       if (v.phase === 'setup') app.innerHTML = '<div style="text-align:center;margin-top:20vh"><h1 style="font-size:5vh">Buổi chấm điểm</h1><p style="font-size:3vh;opacity:.8">Đang chuẩn bị...</p></div>';
       else if (v.phase === 'lobby') buildLobby();
       else if (v.phase === 'grading') { if (v.active) buildGrading(v); else app.innerHTML = '<div style="text-align:center;margin-top:20vh"><h1 style="font-size:5vh">Vui lòng chờ phần trình bày tiếp theo</h1></div>'; }
