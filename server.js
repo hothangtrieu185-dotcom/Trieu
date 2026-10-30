@@ -72,7 +72,20 @@ const publicGroup = (g) => ({ key: g.key, cls: g.cls, group: g.group, form: g.fo
 // ---------- Đọc danh sách lớp từ xlsx ----------
 async function parseRoster(buf) {
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buf);
+  try { await wb.xlsx.load(buf); }
+  catch (e) {   // file có ghi chú (comment) kiểu lạ làm exceljs lỗi: bỏ phần ghi chú rồi đọc lại
+    const JSZip = require('jszip'), zip = await JSZip.loadAsync(buf);
+    for (const name of Object.keys(zip.files)) {
+      if (/^xl\/worksheets\/_rels\/.+\.rels$/.test(name)) {
+        const x = await zip.file(name).async('string');
+        zip.file(name, x.replace(/<Relationship\b[^>]*(?:comments|vmlDrawing)[^>]*\/>/g, ''));
+      }
+    }
+    const wb2 = new ExcelJS.Workbook(); await wb2.xlsx.load(await zip.generateAsync({ type: 'nodebuffer' })); return parseSheet(wb2);
+  }
+  return parseSheet(wb);
+}
+function parseSheet(wb) {
   const ws = wb.worksheets[0];
   const norm = (v) => String(v == null ? '' : v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]/g, '');
   const ALIAS = { mssv: ['rollnumber', 'masosv', 'mssv', 'masv', 'studentid', 'studentcode'], name: ['fullname', 'hovaten', 'hoten', 'name'], group: ['group', 'nhom'], cls: ['class', 'lop'], leader: ['leader', 'nhomtruong'] };
@@ -82,9 +95,10 @@ async function parseRoster(buf) {
     const vals = row.values.map((v) => (v && v.text ? v.text : v));
     const found = {};
     vals.forEach((v, i) => { const k = norm(v); if (!k) return; for (const f in ALIAS) if (!found[f] && ALIAS[f].includes(k)) found[f] = i; });
-    if (found.mssv && found.name && found.group) { hdr = n; Object.assign(cols, found); }
+    if (found.mssv && found.name) { hdr = n; Object.assign(cols, found); }
   });
-  if (!hdr) throw new Error('Không tìm thấy hàng tiêu đề có cột MSSV (RollNumber / Mã số SV), Họ tên (FullName / Họ và tên) và Nhóm (Group / Nhóm)');
+  if (!hdr) throw new Error('Không tìm thấy hàng tiêu đề có cột MSSV (RollNumber / Mã số SV) và Họ tên (FullName / Họ và tên)');
+  if (!cols.group) throw new Error('File chưa có cột Nhóm (Group / Nhóm) nên chưa biết sinh viên thuộc nhóm nào. Hãy thêm cột Nhóm rồi tải lại');
   const out = [];
   ws.eachRow((row, n) => {
     if (n <= hdr) return;
