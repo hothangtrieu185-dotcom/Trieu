@@ -43,6 +43,24 @@
   function groupName(g) { return g.cls + ' · Nhóm ' + g.group; }
   var pick = {};   // lựa chọn tạm của giảng viên, giữ lại khi trang tự làm mới
   var openDet = {}; // danh sách thành viên nào đang mở
+  // ô "chuyển sang nhóm tiếp theo" nằm ngay trong thẻ nhóm đang chấm
+  function nextPanel(ag) {
+    var others = S.groups.filter(function (g) { return g.key !== ag.key; });
+    if (!others.length) return '';
+    var sel = pick.nextkey && others.some(function (g) { return g.key === pick.nextkey; }) ? pick.nextkey : (others.filter(function (g) { return !g.order; })[0] || others[0]).key;
+    return '<div style="margin-top:16px;padding:14px;border:1.5px dashed var(--line);border-radius:12px;background:var(--bg)"><b>Chuyển sang nhóm tiếp theo</b>' +
+      '<p class="muted small" style="margin:4px 0 8px">Phần trình bày hiện tại sẽ đóng chấm, rồi đếm ngược 5 giây trước khi mở chấm nhóm mới.</p>' +
+      '<div class="row" style="align-items:flex-end"><div style="flex:1;min-width:190px"><label style="margin:0 0 4px">Nhóm</label><select id="nextkey" class="fsel2" data-id="nextkey">' +
+      others.map(function (g) { return '<option value="' + esc(g.key) + '"' + (g.key === sel ? ' selected' : '') + '>' + esc(groupName(g)) + (g.order ? ' (đã trình bày, ' + g.n + ' lượt)' : '') + '</option>'; }).join('') + '</select></div>' +
+      '<div style="flex:1;min-width:190px" id="nextformwrap"><label style="margin:0 0 4px">Hình thức dự án</label>' + formSelect('nextform', pick.nextform) + '</div>' +
+      '<button class="accent" id="nextgo" disabled>Chuyển nhóm và đếm ngược</button></div></div>';
+  }
+  function updNext() {
+    var k = document.getElementById('nextkey'); if (!k) return;
+    var g = S.groups.filter(function (x) { return x.key === k.value; })[0], need = g && !g.form;
+    document.getElementById('nextformwrap').style.display = need ? '' : 'none';
+    document.getElementById('nextgo').disabled = !g || (need && !document.getElementById('nextform').value);
+  }
   function membersHtml(g, showJoin) {
     var joined = g.list.filter(function (m) { return m.joined; }).length;
     return '<details class="mem" data-k="' + esc(g.key) + '"' + (openDet[g.key] ? ' open' : '') + '><summary class="small"><b>Thành viên (' + g.list.length + ')</b>' + (showJoin ? ' · đã vào phòng ' + joined + '/' + g.list.length : '') + '</summary>' +
@@ -100,7 +118,7 @@
           '<div class="row" style="margin-top:14px">' + (S.open ? '<button id="close" class="danger">Đóng chấm nhóm này</button>' : '<button id="open">Mở lại chấm</button>') +
           '<button class="ghost greset" data-k="' + esc(ag.key) + '"' + (ag.n ? '' : ' disabled') + '>Reset điểm nhóm này</button>' +
           '<label class="row" style="margin:0;font-weight:500"><input type="checkbox" id="live"' + (S.showLive ? ' checked' : '') + '> Hiện điểm trực tiếp trên màn hình chiếu</label></div>' +
-          ((S.pending && S.pending.length) ? '<details style="margin-top:12px"><summary class="small"><b>' + S.pending.length + '</b> sinh viên chưa chấm</summary><p class="small muted" style="margin-top:8px">' + S.pending.map(function (p) { return esc(p.name) + ' (' + esc(p.mssv) + ')'; }).join(' · ') + '</p></details>' : '') + '</div>';
+          ((S.pending && S.pending.length) ? '<details style="margin-top:12px"><summary class="small"><b>' + S.pending.length + '</b> sinh viên chưa chấm</summary><p class="small muted" style="margin-top:8px">' + S.pending.map(function (p) { return esc(p.name) + ' (' + esc(p.mssv) + ')'; }).join(' · ') + '</p></details>' : '') + nextPanel(ag) + '</div>';
       }
       h += '<div class="card"><h2>' + (S.phase === 'ended' ? 'Kết quả' : 'Các phần trình bày') + '</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">';
       S.groups.forEach(function (g) {
@@ -140,11 +158,19 @@
     document.querySelectorAll('.fsel2').forEach(function (s) {
       s.onchange = function () {
         pick[s.getAttribute('data-id')] = s.value || '';
+        if (s.id === 'nextkey' || s.id === 'nextform') { updNext(); return; }
         var btn = s.id === 'firstform' ? $('start') : (s.parentNode.nextElementSibling);
         if (btn) btn.disabled = !s.value;
       };
     });
     if ($('first')) $('first').onchange = function () { pick.first = this.value; };
+    if ($('nextgo')) {
+      updNext();
+      $('nextgo').onclick = function () {
+        var k = $('nextkey').value, g = S.groups.filter(function (x) { return x.key === k; })[0], f = g && !g.form ? $('nextform').value : '';
+        modal('Chuyển sang ' + esc(groupName(g)) + '?', 'Phần trình bày hiện tại sẽ đóng chấm, màn hình chiếu và điện thoại sinh viên đếm ngược 5 giây rồi mở chấm nhóm mới.', 'Chuyển nhóm', 'accent', function () { act('/api/admin/start', { key: k, form: f }); });
+      };
+    }
     document.querySelectorAll('.cdel').forEach(function (b) {
       b.onclick = function () {
         var c = b.getAttribute('data-c');
