@@ -67,7 +67,7 @@
   }
   function buildLobby() {
     app.innerHTML = '<div class="lb-blob b1"></div><div class="lb-blob b2"></div>' +
-      '<div class="lb-head"><h1><span class="wave">🎤</span> Phòng chờ chấm điểm</h1><div class="lb-tag" id="ltag"><span class="pulse"></span><span id="ltxt">Đang chờ giảng viên bắt đầu</span><span class="dots"></span></div></div>' +
+      '<div class="lb-head"><h1><span class="wave">🎤</span> Phòng chờ chấm điểm <span class="lb-cname" id="lcname"></span></h1><div class="lb-tag" id="ltag"><span class="pulse"></span><span id="ltxt">Đang chờ giảng viên bắt đầu</span><span class="dots"></span></div></div>' +
       '<div class="lb-main"><div class="lb-left"><div class="qrbox qrfx anim-up"><img src="/qr.svg" alt="QR"><i class="scan"></i></div>' +
       '<ol class="lb-steps"><li style="animation-delay:.2s"><b>1</b>Quét mã QR bằng điện thoại</li><li style="animation-delay:.4s"><b>2</b>Nhập họ tên và MSSV</li><li style="animation-delay:.6s"><b>3</b>Chờ giảng viên bắt đầu chấm</li></ol><div class="lb-url" id="url">' + esc(url) + '</div></div>' +
       '<div class="lb-right"><div class="lb-card lb-count" id="lcount"><div class="num" id="jn">0</div><div class="of">/ <span id="jt">0</span></div><div class="lab">sinh viên<br>đã vào phòng</div><div class="lb-ring"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="42" fill="none" stroke-width="10"/><circle class="val" id="lring" cx="50" cy="50" r="42" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg><b id="lpct">0%</b></div></div>' +
@@ -129,7 +129,7 @@
   }
   function updLobby(v) {
     var total = v.total || 0, newJ = v.joined - lb.joined;
-    countTo($('jn'), v.joined, 0, 400); $('jt').textContent = total;
+    countTo($('jn'), v.joined, 0, 400); $('jt').textContent = total; $('lcname').textContent = v.cls || '';
     var pct = total ? Math.min(1, v.joined / total) : 0;
     $('lring').style.strokeDashoffset = 263.9 * (1 - pct); $('lpct').textContent = Math.round(pct * 100) + '%';
     if (lb.ready && newJ > 0) {

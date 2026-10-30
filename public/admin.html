@@ -88,15 +88,18 @@
           (S.classes.length > 1 ? '<div style="margin-top:10px"><button class="ghost cdel" data-c="" style="padding:6px 12px;font-size:14px">Xóa tất cả danh sách</button></div>' : '') : '<p class="muted">Chưa có danh sách.</p>') + '</div>';
       // 2. tạo phòng chờ (hình thức từng nhóm được chọn lúc nhóm đó trình bày)
       if (S.groups.length) {
-        h += '<div class="card"><h2>Bước 2. Mở phòng chờ</h2><p class="muted small">Hình thức dự án (Workshop, Video, Fanpage Facebook) anh chọn riêng cho từng nhóm ngay lúc nhóm đó chuẩn bị trình bày.</p><table><tr><th>Lớp</th><th>Nhóm</th><th>Số bạn</th><th>Danh sách thành viên</th></tr>' +
-          S.groups.map(function (g) { return '<tr><td>' + esc(g.cls) + '</td><td>' + g.group + '</td><td>' + g.members + '</td><td>' + membersHtml(g, false) + '</td></tr>'; }).join('') +
-          '</table><div style="margin-top:14px"><button class="accent" id="lobby">Tạo mã QR và mở phòng chờ</button></div></div>';
+        var sc = S.classes.some(function (c) { return c.cls === pick.cls; }) ? pick.cls : S.classes[0].cls;
+        h += '<div class="card"><h2>Bước 2. Mở phòng chờ</h2><p class="muted small">Mỗi buổi chấm chỉ dành cho <b>một lớp</b>: sinh viên lớp khác sẽ không vào được. Hình thức dự án (Workshop, Video, Fanpage Facebook) anh chọn riêng cho từng nhóm ngay lúc nhóm đó chuẩn bị trình bày.</p>' +
+          (S.classes.length > 1 ? '<label style="margin-top:0">Chọn lớp chấm buổi này</label><select id="sescls" style="max-width:320px;margin-bottom:12px">' + S.classes.map(function (c) { return '<option value="' + esc(c.cls) + '"' + (c.cls === sc ? ' selected' : '') + '>' + esc(c.cls) + ' (' + c.count + ' sinh viên)</option>'; }).join('') + '</select>' : '') +
+          '<table><tr><th>Lớp</th><th>Nhóm</th><th>Số bạn</th><th>Danh sách thành viên</th></tr>' +
+          S.groups.filter(function (g) { return g.cls === sc; }).map(function (g) { return '<tr><td>' + esc(g.cls) + '</td><td>' + g.group + '</td><td>' + g.members + '</td><td>' + membersHtml(g, false) + '</td></tr>'; }).join('') +
+          '</table><div style="margin-top:14px"><button class="accent" id="lobby">Tạo mã QR và mở phòng chờ' + (S.classes.length > 1 ? ' cho lớp ' + esc(sc) : '') + '</button></div></div>';
       }
     }
 
     // 3. phòng chờ
     if (S.phase === 'lobby') {
-      h += '<div class="grid two"><div class="card center"><h2>Mã QR cho sinh viên</h2><div class="qrbox" style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:2px solid var(--brand)"><img src="/qr.svg" alt="QR" style="width:220px;height:220px;display:block"></div>' +
+      h += '<div class="grid two"><div class="card center"><h2>Mã QR cho sinh viên' + (S.sessionClass ? ' · lớp ' + esc(S.sessionClass) : '') + '</h2><div class="qrbox" style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:2px solid var(--brand)"><img src="/qr.svg" alt="QR" style="width:220px;height:220px;display:block"></div>' +
         '<p class="small muted" id="url" style="margin-top:8px"></p><p class="small muted">Để chiếu QR lớn cho cả lớp, bấm "Mở màn hình chiếu".</p></div>' +
         '<div class="card"><h2>Bước 3. Kích hoạt chấm</h2><p><b style="font-size:32px">' + S.joined + '</b> <span class="muted">/ ' + S.total + ' sinh viên đã vào</span></p>' +
         '<label style="margin-top:0">Nhóm trình bày đầu tiên</label><select id="first">' + S.groups.map(function (g) { return '<option value="' + esc(g.key) + '"' + (pick.first === g.key ? ' selected' : '') + '>' + esc(groupName(g)) + '</option>'; }).join('') + '</select>' +
@@ -191,7 +194,8 @@
         modal('Reset điểm nhóm này?', 'Xóa toàn bộ <b>' + g.n + '</b> lượt chấm của ' + esc(groupName(g)) + '. Các bạn đã chấm của nhóm này sẽ chấm lại được. Không thể hoàn tác.', 'Xóa điểm', 'danger', function () { act('/api/admin/resetgroup', { key: k }); });
       };
     });
-    if ($('lobby')) $('lobby').onclick = function () { act('/api/admin/lobby'); };
+    if ($('sescls')) $('sescls').onchange = function () { pick.cls = this.value; render(true); };
+    if ($('lobby')) $('lobby').onclick = function () { act('/api/admin/lobby', { cls: $('sescls') ? $('sescls').value : '' }); };
     if ($('start')) $('start').onclick = function () { act('/api/admin/start', { key: $('first').value, form: $('firstform').value }); };
     if ($('url')) fetch('/api/public-url').then(function (r) { return r.json(); }).then(function (j) { if ($('url')) $('url').textContent = j.url; });
     if ($('back')) $('back').onclick = function () {

@@ -22,6 +22,7 @@ const fresh = () => ({
   groups: [],              // {key, cls, group, form, order}
   students: {},            // mssv -> {mssv,name,cls,group,token,joinedAt}
   ratings: [],             // {key, mssv, scores, total, at}
+  sessionClass: null,      // mỗi buổi chấm chỉ dành cho một lớp
   activeKey: null,
   open: false,
   startsAt: 0,           // mốc bắt đầu chấm (sau đếm ngược 5 giây)
@@ -43,6 +44,7 @@ function save() {
 // ---------- Tiện ích ----------
 const r2 = (x) => Math.round(x * 100) / 100;
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/\s+/g, ' ').trim();
+const R = () => (S.sessionClass ? S.roster.filter((r) => r.cls === S.sessionClass) : S.roster);   // danh sách của lớp đang chấm
 const groupByKey = (k) => S.groups.find((g) => g.key === k);
 const formLabel = (f) => (RUBRICS[f] ? RUBRICS[f].label : '');
 const sameGroup = (st, g) => g && st.cls === g.cls && String(st.group) === String(g.group);
@@ -114,7 +116,7 @@ function parseSheet(wb) {
 function rebuildGroups() {
   const old = Object.fromEntries(S.groups.map((g) => [g.key, g]));
   const keys = new Map();
-  S.roster.forEach((r) => { if (r.group) keys.set(`${r.cls}-${r.group}`, { cls: r.cls, group: r.group }); });
+  R().forEach((r) => { if (r.group) keys.set(`${r.cls}-${r.group}`, { cls: r.cls, group: r.group }); });
   S.groups = [...keys.entries()].sort((a, b) => a[1].cls.localeCompare(b[1].cls) || a[1].group - b[1].group)
     .map(([key, v]) => ({ key, cls: v.cls, group: v.group, form: old[key] ? old[key].form : null, order: old[key] ? old[key].order : null }));
 }
@@ -155,6 +157,7 @@ async function apiJoin(req, res) {
   if (!mssv || !name) return fail(res, 400, 'Vui lòng nhập đủ họ tên và MSSV.');
   const r = S.roster.find((x) => x.mssv === mssv);
   if (!r) return fail(res, 404, 'MSSV không có trong danh sách lớp. Vui lòng kiểm tra lại.');
+  if (S.sessionClass && r.cls !== S.sessionClass) return fail(res, 403, 'Buổi chấm này dành cho lớp ' + S.sessionClass + '. Bạn thuộc lớp ' + r.cls + ' nên chưa vào được.');
   if (norm(r.name) !== norm(name)) return fail(res, 403, 'Họ tên không khớp với MSSV. Vui lòng nhập đúng họ tên có dấu như trong danh sách lớp.');
   let st = S.students[mssv];
   if (!st) { st = S.students[mssv] = { mssv, name: r.name, cls: r.cls, group: r.group, token: crypto.randomBytes(16).toString('hex'), joinedAt: Date.now() }; }
@@ -189,8 +192,9 @@ function screenView() {
   if (S.phase === 'lobby') {
     v.bubbles = Object.values(S.students).sort((a, b) => a.joinedAt - b.joinedAt).slice(-200)
       .map((st) => ({ t: (st.name.trim().split(/\s+/).pop() || '?').charAt(0).toUpperCase(), c: st.cls }));
-    v.total = S.roster.length;   // chỉ là số lượng, không lộ thông tin cá nhân
-    v.classes = [...new Set(S.roster.map((r) => r.cls))].map((c) => ({ cls: c, total: S.roster.filter((r) => r.cls === c).length, joined: Object.values(S.students).filter((st) => st.cls === c).length }));
+    v.cls = S.sessionClass;
+    v.total = R().length;   // chỉ là số lượng, không lộ thông tin cá nhân
+    v.classes = [...new Set(R().map((r) => r.cls))].map((c) => ({ cls: c, total: R().filter((r) => r.cls === c).length, joined: Object.values(S.students).filter((st) => st.cls === c).length }));
   }
   const g = groupByKey(S.activeKey);
   if (S.phase === 'grading' && g) {
@@ -217,13 +221,13 @@ function adminView() {
       .sort((a, b) => (b.leader - a.leader) || a.name.localeCompare(b.name, 'vi')) }));
   const classes = [...new Set(S.roster.map((r) => r.cls))].map((c) => ({ cls: c, count: S.roster.filter((r) => r.cls === c).length }));
   const v = { now: Date.now(), startsAt: S.startsAt, phase: S.phase, activeKey: S.activeKey, open: S.open, showLive: S.showLive, classes, groups,
-    joined: Object.keys(S.students).length, total: S.roster.length, forms: Object.fromEntries(Object.entries(RUBRICS).map(([k, f]) => [k, { label: f.label, criteria: f.criteria }])) };
+    sessionClass: S.sessionClass, joined: Object.keys(S.students).length, total: R().length, forms: Object.fromEntries(Object.entries(RUBRICS).map(([k, f]) => [k, { label: f.label, criteria: f.criteria }])) };
   const g = groupByKey(S.activeKey);
   if (g) {
     v.pending = Object.values(S.students).filter((st) => !sameGroup(st, g) && !S.ratings.some((r) => r.key === g.key && r.mssv === st.mssv))
       .map((st) => ({ mssv: st.mssv, name: st.name, cls: st.cls })).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   }
-  v.notJoined = S.roster.filter((r) => !S.students[r.mssv]).length;
+  v.notJoined = R().filter((r) => !S.students[r.mssv]).length;
   return v;
 }
 async function buildReport() {
@@ -250,7 +254,7 @@ async function buildReport() {
   // 3. Điểm danh
   const ws3 = wb.addWorksheet('Tham gia theo sinh viên');
   ws3.columns = [{ header: 'Lớp', key: 'cls', width: 12 }, { header: 'MSSV', key: 'mssv', width: 14 }, { header: 'Họ tên', key: 'name', width: 28 }, { header: 'Nhóm', key: 'group', width: 8 }, { header: 'Đã vào phòng chấm', key: 'joined', width: 19 }, { header: 'Số nhóm đã chấm', key: 'cnt', width: 16 }, { header: 'Số nhóm phải chấm', key: 'need', width: 17 }];
-  S.roster.forEach((r) => {
+  R().forEach((r) => {
     const need = ordered.filter((g) => !sameGroup(r, g)).length;
     ws3.addRow({ cls: r.cls, mssv: r.mssv, name: r.name, group: r.group, joined: S.students[r.mssv] ? 'Có' : 'Không', cnt: S.ratings.filter((x) => x.mssv === r.mssv).length, need });
   });
@@ -309,7 +313,12 @@ async function apiAdmin(req, res, url) {
   }
   if (p === '/api/admin/lobby') {
     if (S.phase !== 'setup') return fail(res, 409, 'Phòng chờ đã mở.');
-    if (!S.groups.length) return fail(res, 400, 'Chưa có danh sách lớp.');
+    const cl = [...new Set(S.roster.map((r) => r.cls))];
+    let c = String(b.cls || '').trim(); if (!c && cl.length === 1) c = cl[0];
+    if (!cl.length) return fail(res, 400, 'Chưa có danh sách lớp.');
+    if (!cl.includes(c)) return fail(res, 400, 'Hãy chọn lớp chấm cho buổi này.');
+    S.sessionClass = c; rebuildGroups();
+    if (!S.groups.length) { S.sessionClass = null; rebuildGroups(); return fail(res, 400, 'Lớp này chưa có nhóm nào.'); }
     S.phase = 'lobby'; save(); return send(res, 200, { ok: true });
   }
   if (p === '/api/admin/start') {  // kích hoạt chấm và/hoặc chuyển sang nhóm khác
