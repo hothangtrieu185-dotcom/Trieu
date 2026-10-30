@@ -227,3 +227,22 @@ body.screen .panel.lobby-on{position:relative}
 
 .lb-cname{display:inline-block;margin-left:1vw;color:#fff;background:var(--brand);border-radius:16px;padding:0 1.4vw;font-size:.9em}
 .lb-cname:empty{display:none}
+
+/* hiệu ứng QR */
+.qrwrap{position:relative;display:inline-block}
+.qr-call{position:absolute;left:50%;top:-2.2vh;transform:translateX(-50%);z-index:3;white-space:nowrap;background:var(--brand);color:#fff;font-weight:800;font-size:2.3vh;padding:.7vh 1.8vh;border-radius:99px;box-shadow:0 6px 18px rgba(107,15,42,.35);animation:callb 1.4s ease-in-out infinite}
+@keyframes callb{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-1vh)}}
+.cn{position:absolute;width:5vh;height:5vh;border:0 solid var(--accent);pointer-events:none;animation:cnp 1.6s ease-in-out infinite}
+.cn.tl{left:1vh;top:1vh;border-left-width:.7vh;border-top-width:.7vh;border-top-left-radius:1.4vh}
+.cn.tr{right:1vh;top:1vh;border-right-width:.7vh;border-top-width:.7vh;border-top-right-radius:1.4vh}
+.cn.bl{left:1vh;bottom:1vh;border-left-width:.7vh;border-bottom-width:.7vh;border-bottom-left-radius:1.4vh}
+.cn.br{right:1vh;bottom:1vh;border-right-width:.7vh;border-bottom-width:.7vh;border-bottom-right-radius:1.4vh}
+@keyframes cnp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.86)}}
+.qrsm{position:relative;overflow:hidden;background:#fff;padding:.8vh;border-radius:1.4vh;border:2px solid var(--brand);animation:qrin .9s cubic-bezier(.2,1.25,.4,1) both,qrglow 2.6s ease-in-out .9s infinite}
+.qrsm .scan{position:absolute;left:0;right:0;top:0;height:8%;background:linear-gradient(180deg,transparent,rgba(143,26,56,.3),transparent);animation:scan 2.6s ease-in-out infinite;pointer-events:none}
+.qrsm .cn{width:2.6vh;height:2.6vh;left:auto;right:auto}
+.qrsm .cn.tl{left:.4vh;top:.4vh;border-left-width:.4vh;border-top-width:.4vh}
+.qrsm .cn.tr{right:.4vh;top:.4vh;border-right-width:.4vh;border-top-width:.4vh}
+.qrsm .cn.bl{left:.4vh;bottom:.4vh;border-left-width:.4vh;border-bottom-width:.4vh}
+.qrsm .cn.br{right:.4vh;bottom:.4vh;border-right-width:.4vh;border-bottom-width:.4vh}
+@keyframes qrin{0%{transform:perspective(700px) rotateY(95deg) scale(.5);opacity:0}100%{transform:none;opacity:1}}
