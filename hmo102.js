@@ -164,7 +164,7 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
     return { v };
   }
 
-  const PAGES = { '/hmo102': 'index.html', '/hmo102/admin': 'admin.html', '/hmo102/screen': 'screen.html', '/hmo102/h.css': 'h.css', '/hmo102/doodle.js': 'doodle.js', '/hmo102/common.js': 'common.js' };
+  const PAGES = { '/hmo102': 'index.html', '/hmo102/admin': 'admin.html', '/hmo102/screen': 'screen.html', '/hmo102/screen.css': 'screen.css', '/hmo102/h.css': 'h.css', '/hmo102/doodle.js': 'doodle.js', '/hmo102/common.js': 'common.js' };
   const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
 
   return async function handle(req, res, url) {

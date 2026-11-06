@@ -2,37 +2,95 @@
 <html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Màn hình chiếu · HMO102</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Itim&display=swap">
-<link rel="stylesheet" href="/hmo102/h.css">
-<style>.sheet{max-width:1100px;text-align:center}.cols{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:28px;align-items:center;margin-top:18px}
-.bub{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--hand);font-size:20px;margin:4px;animation:pop .3s ease-out}
-@keyframes pop{from{transform:scale(.2)}to{transform:scale(1)}}
-.num{font-family:var(--hand);font-size:92px;line-height:1}.big-clock{font-size:150px}@media(max-width:760px){.cols{grid-template-columns:1fr}.big-clock{font-size:84px}}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&family=Itim&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/hmo102/screen.css">
+<script src="/hmo102/doodle.js"></script>
 </head><body>
-<main class="sheet"><header class="hero"><div style="text-align:left"><div class="eyebrow">HMO102 · Final Project · FA26</div><h1>Chấm chéo đồng đội</h1></div></header><div id="app"></div></main>
-<script src="/hmo102/common.js"></script>
+<main class="sheet" id="app"></main>
 <script>
-let V=null,sig='';
-async function poll(){try{V=await api('/api/h/screen');syncNow(V.now);draw()}catch(e){}}
-function draw(){
-  const S=V.session,running=S&&S.status==='running';
-  const s=JSON.stringify([V.logged,S&&[S.g,S.status,S.endsAt,S.inRoom,S.submitted]]);
-  if(s===sig){tick();return}sig=s;
-  let h='';
-  if(!S){
-    h+=`<div class="cols"><div><img class="qr" src="/h/qr.svg?mode=login&t=1" alt="QR đăng nhập" style="max-width:340px"><p class="small muted" style="margin-top:10px">Quét để mở trang chấm chéo</p></div><div><div class="eyebrow">Bước 1</div><h2 style="font-size:34px">Đăng nhập bằng MSSV và họ tên</h2><p class="muted">Sau khi đăng nhập, bạn đợi giảng viên tạo mã QR phòng chờ rồi quét mã đó.</p><div class="num">${V.logged}<span class="muted" style="font-size:44px">/${V.roster}</span></div><div class="muted">bạn đã đăng nhập</div></div></div>`;
-  }else if(S.status==='open'){
-    h+=`<div class="cols"><div><img class="qr" src="/h/qr.svg?mode=room&t=${S.g}${S.inRoom}" alt="QR phòng chờ" style="max-width:340px"><p class="small muted" style="margin-top:10px">Nhóm ${S.g} quét QR để vào phòng chờ</p></div><div><div class="eyebrow">Phòng chờ · Nhóm ${S.g}</div><div class="num">${S.inRoom}<span class="muted" style="font-size:44px">/${S.total}</span></div><div class="muted">bạn đã vào phòng chờ</div><div style="margin-top:16px">${S.bubbles.map(b=>`<span class="bub">${esc(b)}</span>`).join('')}</div></div></div>`;
-  }else if(running){
-    h+=`<div class="eyebrow" style="margin-top:20px">Đang chấm</div><h2 style="font-size:40px">Nhóm ${S.g}</h2><div class="big-clock" id="bc"></div><div class="num" style="font-size:54px">${S.submitted}/${S.total}</div><div class="muted">bạn đã nộp bài chấm</div>`;
-  }else{
-    h+=`<div class="notice" style="margin-top:30px;font-size:20px">Đã kết thúc chấm Nhóm ${S.g}. Cảm ơn các bạn.</div>`;
-  }
-  document.getElementById('app').innerHTML=h;tick();
+(function(){
+var app=document.getElementById('app'),OFF=0,mode='',st={joined:0,ready:false,shown:0,tip:0},cdFor=0,cdT=null,sayT=null,tipT=null;
+var $=function(i){return document.getElementById(i)};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+var now=function(){return Date.now()+OFF};
+var mmss=function(ms){ms=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(ms/60)).padStart(2,'0')+':'+String(ms%60).padStart(2,'0')};
+var setT=function(el,t){if(el&&el.textContent!==String(t))el.textContent=t};
+function countTo(el,to,ms){if(!el||el._v===to)return;var from=el._v==null?0:el._v;el._v=to;var t0=performance.now();ms=ms||500;(function f(t){var p=Math.min(1,(t-t0)/ms),e=1-Math.pow(1-p,3);el.textContent=Math.round(from+(to-from)*e);if(p<1)requestAnimationFrame(f)})(t0)}
+var TIPS=['🏨 Mỗi thành viên đều là một “nhân viên” của nhóm, hãy đánh giá công tâm.','⭐ Chấm từ 1 đến 5 cho 4 tiêu chí, dưới 3 điểm nhớ ghi lý do.','🙈 Điểm bạn chấm được ẩn danh với các bạn trong nhóm.','📱 Giữ nguyên màn hình điện thoại, đừng thoát khỏi trang.','⏱️ Khi giảng viên bấm bắt đầu sẽ có 3 giây đếm ngược cho cả nhóm.','✍️ Bạn nộp lại được đến khi hết giờ, bài nộp sau cùng là bài được tính.'];
+var JOKES=['Check-in sớm nhất nè, cho mình xin phòng view đẹp!','Mình đến sớm hơn cả lễ tân luôn 😎','Đã sẵn sàng phục vụ… à nhầm, sẵn sàng chấm điểm!','Thầy ơi, welcome drink của tụi em đâu rồi?','Mình chấm công tâm như khách sạn năm sao!','Hôm nay mình là khách VIP, được quyền chấm điểm 🌟','Có ai mang theo bánh tráng trộn không?','Nhóm mình đủ chưa nhỉ, điểm danh nào!','Check-in xong, giờ chờ check-out điểm số','Mình tập trung cao độ như bàn giao ca vậy','Hồi hộp hơn cả lúc đón đoàn khách đông!','Điện thoại sạc 100%, sẵn sàng 24/7','Khách sạn có wifi, phòng chờ thì cầu mong cũng có 🙏','Chấm nhẹ tay thôi, ai cũng đã cố gắng rồi','Mình vào rồi nè, thầy bấm nút đi ạ!','Quản lý ca chưa ra hiệu, cả nhóm cứ chờ nha','Mình đã thuộc 4 tiêu chí như thuộc quy trình lễ tân','Dịch vụ tốt là phải chấm điểm cho công bằng','Sao nhỉ, hôm nay mình thấy ai cũng vui vẻ ghê','Bình tĩnh, mình là người của ngành dịch vụ mà!','Trải nghiệm khách hàng bắt đầu từ chính nhóm mình 💬','Ai chưa vào thì nhanh lên, nhóm đang chờ 👀','Nụ cười là phần thưởng đầu tiên của người làm dịch vụ 😊','Một, hai, ba… sẵn sàng phục vụ!','Mình chấm bằng cả trái tim và tiêu chí','Phòng chờ mà như sảnh khách sạn, sang ghê','Ngồi ngay ngắn như nhân viên trực quầy','Chấm xong nhớ cảm ơn đồng đội nha 🤝','Mình hứa chấm thật công bằng, không thiên vị!','Có ai thấy hồi hộp như mình không?','Hôm nay không ai được ngủ gật nhé 😴','Mình ngồi đây từ nãy, ghế còn chưa ấm','Mình mang theo con mắt tinh đời của người làm khách sạn','Tin nhắn từ lễ tân: “Quý khách vui lòng chờ trong giây lát”','Đủ người rồi thì bắt đầu thôi thầy ơi!','Phục vụ khách chu đáo, chấm điểm đồng đội cũng chu đáo','Cả nhóm cùng chấm, cả nhóm cùng vui 🎉','Đồng đội là khách hàng nội bộ quan trọng nhất!','Sẵn sàng khởi động, 3… 2… 1… 🚀'];
+var deck=[];
+function nextJoke(){if(!deck.length){deck=JOKES.slice();for(var i=deck.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=deck[i];deck[i]=deck[j];deck[j]=t}}return deck.pop()}
+function say(el){if(!el||!el.isConnected||document.querySelectorAll('.sbl').length>=3)return;var r=el.getBoundingClientRect(),d=document.createElement('div'),up=r.top>innerHeight*.3;d.className='sbl'+(up?'':' dn');d.textContent=el.dataset.q;var x=Math.max(innerHeight*.17,Math.min(innerWidth-innerHeight*.17,r.left+r.width/2));d.style.left=x+'px';d.style.top=(up?r.top-8:r.bottom+8)+'px';d.style.setProperty('--tx',(r.left+r.width/2-x).toFixed(0)+'px');document.body.appendChild(d);setTimeout(function(){d.remove()},3600)}
+function burst(el,n,big){if(!el)return;var r=el.getBoundingClientRect();for(var k=0;k<n;k++){var d=document.createElement('i');d.className='bst';var a=Math.random()*Math.PI*2,dist=(big?14:7)+Math.random()*(big?22:12);d.style.cssText='left:'+(r.left+r.width/2)+'px;top:'+(r.top+r.height/2)+'px;--dx:'+(Math.cos(a)*dist).toFixed(1)+'vh;--dy:'+(Math.sin(a)*dist).toFixed(1)+'vh;background:'+['#7A1630','#141414','#A82246','#E8C2CC','#C9A24B'][k%5];document.body.appendChild(d);setTimeout(function(x){x.remove()}.bind(null,d),1400)}}
+var QRBOX=function(src,alt){return '<div class="qrbox"><img src="'+src+'" alt="'+alt+'"><i class="scan"></i><i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i></div>'};
+var RING='<div class="ring"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="42" fill="none" stroke-width="10"/><circle class="val" id="ring" cx="50" cy="50" r="42" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg><b id="pct">0%</b></div>';
+function stopTimers(){clearInterval(sayT);clearInterval(tipT);document.querySelectorAll('.sbl').forEach(function(x){x.remove()})}
+function head(title,tagId,tagTxt,gname){return '<div class="blob b1"></div><div class="blob b2"></div><div class="head"><div><div class="eyebrow">HMO102 · Final Project · FA26</div><h1>'+title+(gname?'<span class="gname">'+gname+'</span>':'')+'</h1><div class="tag" id="tag"><span class="pulse"></span><span id="tagtxt">'+tagTxt+'</span><span class="dts"></span></div></div>'+DOODLE('')+'</div>'}
+function tips(){var t=$('tip');t.textContent=TIPS[0];clearInterval(tipT);tipT=setInterval(function(){var e=$('tip');if(!e){clearInterval(tipT);return}e.style.opacity=0;setTimeout(function(){st.tip=(st.tip+1)%TIPS.length;e.textContent=TIPS[st.tip];e.style.opacity=''},400)},6000)}
+// ---- bước 1: chưa có phòng ----
+function buildLogin(){
+  stopTimers();
+  app.innerHTML=head('Chấm chéo đồng đội','','Chờ cả lớp đăng nhập','')+'<div class="main"><div class="left">'+QRBOX('/h/qr.svg?mode=login&t=1','QR đăng nhập')+'<ol class="steps"><li style="animation-delay:.2s"><b>1</b>Quét mã QR bằng điện thoại</li><li style="animation-delay:.4s"><b>2</b>Nhập MSSV và họ tên</li><li style="animation-delay:.6s"><b>3</b>Chờ giảng viên mở phòng chờ</li></ol></div>'+
+  '<div class="right"><div class="card count" id="cnt"><div class="num" id="n">0</div><div class="of">/ <span id="t">0</span></div><div class="lab">bạn đã<br>đăng nhập</div>'+RING+'</div><div class="card center"><div class="eyebrow">Bước 1</div><h1 style="font-size:5vh">Đăng nhập bằng MSSV và họ tên</h1><p style="font-size:2.6vh;color:var(--muted);margin:0">Hệ thống tự nhận ra nhóm của bạn.<br>Sau đó chờ giảng viên tạo mã QR phòng chờ rồi quét mã đó.</p></div></div></div><div class="foot" id="tip"></div>';
+  st.joined=0;st.ready=false;tips()
 }
-function tick(){
-  const S=V&&V.session,el=document.getElementById('bc');if(!el||!S)return;
-  const n=nowS();el.textContent=n<S.startsAt?'Chuẩn bị':mmss(S.endsAt-n);el.className='big-clock'+(S.endsAt-n<=60000?' low':'');
+function updLogin(v){var total=v.roster||0;countTo($('n'),v.logged);setT($('t'),total);ring(v.logged,total);if(st.ready&&v.logged>st.joined){var c=$('cnt');c.classList.remove('bump');void c.offsetWidth;c.classList.add('bump');burst($('n'),10,false)}st.joined=v.logged;st.ready=true}
+function ring(a,b){var p=b?Math.min(1,a/b):0,r=$('ring');if(!r)return;var o=(263.9*(1-p)).toFixed(1);if(r._o!==o){r._o=o;r.style.strokeDashoffset=o}setT($('pct'),Math.round(p*100)+'%')}
+// ---- bước 2: phòng chờ nhóm ----
+function buildRoom(S){
+  stopTimers();
+  app.innerHTML=head('Phòng chờ','', 'Đang chờ giảng viên bắt đầu','Nhóm '+S.g)+'<div class="main"><div class="left">'+QRBOX('/h/qr.svg?mode=room&t='+S.g+'-'+S.startsAt+'-'+(S.code||''),'QR phòng chờ')+'<ol class="steps"><li style="animation-delay:.2s"><b>1</b>Quét QR phòng chờ này</li><li style="animation-delay:.4s"><b>2</b>Đợi cả nhóm vào đủ</li><li style="animation-delay:.6s"><b>3</b>Chờ giảng viên bấm bắt đầu</li></ol></div>'+
+  '<div class="right"><div class="card count" id="cnt"><div class="num" id="n">0</div><div class="of">/ <span id="t">0</span></div><div class="lab">bạn trong nhóm<br>đã vào phòng</div>'+RING+'</div><div class="card bubwrap"><div class="bubhead"><span>Những bạn đã vào phòng chờ</span><span class="feed" id="feed"></span></div><div class="bub" id="bub"></div></div></div></div><div class="foot" id="tip"></div>';
+  st.joined=0;st.ready=false;st.shown=0;tips();
+  sayT=setInterval(function(){var b=$('bub');if(!b){clearInterval(sayT);return}var k=b.children;if(k.length)say(k[Math.floor(Math.random()*k.length)])},2200)
 }
-poll();setInterval(poll,2000);setInterval(tick,250);
+function updRoom(S){
+  var total=S.total||0;countTo($('n'),S.inRoom);setT($('t'),total);ring(S.inRoom,total);
+  var newJ=S.inRoom-st.joined;if(st.ready&&newJ>0){var c=$('cnt');c.classList.remove('bump');void c.offsetWidth;c.classList.add('bump');burst($('n'),Math.min(26,8+newJ*4),false)}
+  var all=total&&S.inRoom>=total,tag=$('tag');tag.classList.toggle('ready',!!all);setT($('tagtxt'),all?'🎉 Đã đủ cả nhóm, sẵn sàng bắt đầu!':'Đang chờ giảng viên bắt đầu');
+  if(all&&!st.full){st.full=1;if(st.ready)burst($('n'),40,true)}if(!all)st.full=0;
+  var b=$('bub'),arr=S.bubbles||[];if(arr.length<st.shown){b.innerHTML='';st.shown=0}
+  var fresh=st.ready?arr.slice(st.shown):[];
+  for(var i=st.shown;i<arr.length;i++){var e=document.createElement('i');e.textContent=arr[i];e.dataset.q=nextJoke();if(st.ready)e.className='new';b.appendChild(e)}
+  st.shown=arr.length;
+  if(fresh.length){var k=b.children;for(var q=0;q<Math.min(2,fresh.length);q++)(function(el,d){setTimeout(function(){say(el)},d)})(k[k.length-1-q],500+q*900);var f=$('feed');f.classList.remove('show');void f.offsetWidth;f.textContent='🎉 '+(fresh.length>1?fresh.length+' bạn':'Một bạn')+' vừa vào phòng';f.classList.add('show')}
+  var w=b.clientWidth,h=b.clientHeight,n=Math.max(arr.length,1),sig=w+'x'+h+'x'+n;
+  if(w&&h&&b._s!==sig){b._s=sig;var sz=Math.max(22,Math.min(76,Math.floor(Math.sqrt(w*h/n))-10));b.style.setProperty('--bs',sz+'px');while(b.scrollHeight>b.clientHeight+1&&sz>22){sz-=2;b.style.setProperty('--bs',sz+'px')}}
+  st.joined=S.inRoom;st.ready=true
+}
+// ---- bước 3: đang chấm ----
+function buildRun(S){
+  stopTimers();
+  app.innerHTML=head('Đang chấm','','Nhóm đang đánh giá đồng đội','Nhóm '+S.g)+'<div class="run"><div class="card center"><div class="eyebrow">Thời gian còn lại</div><div class="clock" id="clk">--:--</div><div class="tbar"><i id="tb" style="width:100%"></i></div></div>'+
+  '<div class="right"><div class="card count" id="cnt"><div class="num" id="n">0</div><div class="of">/ <span id="t">0</span></div><div class="lab">bạn đã<br>nộp bài chấm</div>'+RING+'</div><div class="card center" style="flex:1"><div style="font-size:7vh">📝</div><p style="font-size:2.6vh;margin:0;color:var(--muted)">Chấm xong nhớ bấm <b style="color:var(--wine)">Nộp bài chấm</b> trên điện thoại.<br>Nộp lại được đến khi hết giờ.</p></div></div></div><div class="foot" id="tip"></div>';
+  st.joined=0;st.ready=false;st.total=S.endsAt-S.startsAt;tips()
+}
+function updRun(S){
+  countTo($('n'),S.submitted);setT($('t'),S.total);ring(S.submitted,S.total);
+  if(st.ready&&S.submitted>st.joined){var c=$('cnt');c.classList.remove('bump');void c.offsetWidth;c.classList.add('bump');burst($('n'),16,false)}
+  st.joined=S.submitted;st.ready=true;clock(S)
+}
+function clock(S){var el=$('clk');if(!el)return;var left=S.endsAt-now(),tot=S.endsAt-S.startsAt;if(now()<S.startsAt)left=S.endsAt-S.startsAt;el.textContent=left>0?mmss(left):'Hết giờ';el.className='clock'+(left>0&&left<=60000?' low':'');var tb=$('tb');if(tb)tb.style.width=Math.max(0,Math.min(100,left/tot*100))+'%'}
+function countdown(S){
+  if(cdFor===S.startsAt)return;cdFor=S.startsAt;
+  var ov=document.createElement('div');ov.className='cd';ov.innerHTML='<div style="font-size:4vh;opacity:.9">Nhóm '+esc(S.g)+'</div><div style="font-size:6vh;font-weight:800;margin:1vh 0">Chuẩn bị chấm điểm</div><div class="big" id="cdn"></div>';document.body.appendChild(ov);var shown=null;
+  function tk(){var l=Math.ceil((S.startsAt-now())/1000);if(l<=0){clearInterval(cdT);ov.remove();return}if(l!==shown){shown=l;var n=$('cdn');n.textContent=l;n.style.animation='none';void n.offsetWidth;n.style.animation=''}}
+  clearInterval(cdT);tk();cdT=setInterval(tk,100)
+}
+function buildEnd(S){
+  stopTimers();
+  app.innerHTML=head('Hoàn thành','','Cảm ơn cả nhóm','Nhóm '+S.g)+'<div class="center"><div style="font-size:14vh">🎉</div><h1 style="font-size:6vh">Nhóm '+esc(S.g)+' đã chấm xong</h1><p style="font-size:3vh;color:var(--muted);margin:0">Cảm ơn các bạn đã đánh giá công tâm.<br>Giảng viên đang tổng hợp kết quả.</p></div>';
+  document.getElementById('tag').style.display='none';
+  setTimeout(function(){var m=document.querySelector('.center>div');burst(m,50,true)},300)
+}
+function apply(v){
+  OFF=v.now-Date.now();window._S=v.session;var S=v.session,m=!S?'login':S.status+':'+S.g+':'+S.startsAt;
+  if(m!==mode){mode=m;if(!S)buildLogin();else if(S.status==='open')buildRoom(S);else if(S.status==='running')buildRun(S);else buildEnd(S)}
+  if(!S)updLogin(v);else if(S.status==='open')updRoom(S);else if(S.status==='running'){updRun(S);if(S.startsAt>now())countdown(S)}
+}
+function tick(){fetch('/api/h/screen').then(function(r){return r.json()}).then(apply).catch(function(){})}
+tick();setInterval(tick,800);
+setInterval(function(){var el=$('clk');if(el&&window._S)clock(window._S)},250);
+})();
 </script></body></html>
