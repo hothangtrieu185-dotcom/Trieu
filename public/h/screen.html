@@ -5,32 +5,34 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Itim&display=swap">
 <link rel="stylesheet" href="/hmo102/h.css">
 <style>.sheet{max-width:1100px;text-align:center}.cols{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:28px;align-items:center;margin-top:18px}
-.bub{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--hand);font-size:20px;margin:4px;animation:pop .3s ease-out}.bub.g2{background:var(--wine)}.bub.g3{background:#fff;color:var(--ink);border:2px solid var(--ink)}
+.bub{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--hand);font-size:20px;margin:4px;animation:pop .3s ease-out}
 @keyframes pop{from{transform:scale(.2)}to{transform:scale(1)}}
-.num{font-family:var(--hand);font-size:92px;line-height:1}.gl{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}.gl div{border:2px solid var(--ink);border-radius:12px;padding:8px 16px;font-size:18px}
-.big-clock{font-size:150px}@media(max-width:760px){.cols{grid-template-columns:1fr}.big-clock{font-size:84px}}</style>
+.num{font-family:var(--hand);font-size:92px;line-height:1}.big-clock{font-size:150px}@media(max-width:760px){.cols{grid-template-columns:1fr}.big-clock{font-size:84px}}</style>
 </head><body>
-<main class="sheet" id="m"><header class="hero"><div style="text-align:left"><div class="eyebrow">HMO102 · Final Project · FA26</div><h1>Chấm chéo đồng đội</h1></div></header><div id="app"></div></main>
+<main class="sheet"><header class="hero"><div style="text-align:left"><div class="eyebrow">HMO102 · Final Project · FA26</div><h1>Chấm chéo đồng đội</h1></div></header><div id="app"></div></main>
 <script src="/hmo102/common.js"></script>
 <script>
 let V=null,sig='';
 async function poll(){try{V=await api('/api/h/screen');syncNow(V.now);draw()}catch(e){}}
 function draw(){
-  const R=V.round,running=R&&R.open&&nowS()<=R.endsAt+4000;
-  const s=JSON.stringify([V.joined,V.groups,R&&[R.g,R.startsAt,R.endsAt,R.open,R.submitted],V.bubbles.length]);
+  const S=V.session,running=S&&S.status==='running';
+  const s=JSON.stringify([V.logged,S&&[S.g,S.status,S.endsAt,S.inRoom,S.submitted]]);
   if(s===sig){tick();return}sig=s;
   let h='';
-  if(running){
-    h+=`<div class="eyebrow" style="margin-top:20px">Đang chấm</div><h2 style="font-size:40px">Nhóm ${R.g}</h2><div class="big-clock" id="bc"></div><div class="num" style="font-size:54px">${R.submitted}/${R.total}</div><div class="muted">bạn đã nộp bài chấm</div>`;
+  if(!S){
+    h+=`<div class="cols"><div><img class="qr" src="/h/qr.svg?mode=login&t=1" alt="QR đăng nhập" style="max-width:340px"><p class="small muted" style="margin-top:10px">Quét để mở trang chấm chéo</p></div><div><div class="eyebrow">Bước 1</div><h2 style="font-size:34px">Đăng nhập bằng MSSV và họ tên</h2><p class="muted">Sau khi đăng nhập, bạn đợi giảng viên tạo mã QR phòng chờ rồi quét mã đó.</p><div class="num">${V.logged}<span class="muted" style="font-size:44px">/${V.roster}</span></div><div class="muted">bạn đã đăng nhập</div></div></div>`;
+  }else if(S.status==='open'){
+    h+=`<div class="cols"><div><img class="qr" src="/h/qr.svg?mode=room&t=${S.g}${S.inRoom}" alt="QR phòng chờ" style="max-width:340px"><p class="small muted" style="margin-top:10px">Nhóm ${S.g} quét QR để vào phòng chờ</p></div><div><div class="eyebrow">Phòng chờ · Nhóm ${S.g}</div><div class="num">${S.inRoom}<span class="muted" style="font-size:44px">/${S.total}</span></div><div class="muted">bạn đã vào phòng chờ</div><div style="margin-top:16px">${S.bubbles.map(b=>`<span class="bub">${esc(b)}</span>`).join('')}</div></div></div>`;
+  }else if(running){
+    h+=`<div class="eyebrow" style="margin-top:20px">Đang chấm</div><h2 style="font-size:40px">Nhóm ${S.g}</h2><div class="big-clock" id="bc"></div><div class="num" style="font-size:54px">${S.submitted}/${S.total}</div><div class="muted">bạn đã nộp bài chấm</div>`;
   }else{
-    h+=`<div class="cols"><div><img class="qr" src="/h/qr.svg" alt="QR vào phòng chờ" style="max-width:340px"><p class="small muted" style="margin-top:10px">Quét QR, nhập MSSV và họ tên để vào phòng chờ</p></div><div><div class="eyebrow">Phòng chờ</div><div class="num">${V.joined}<span class="muted" style="font-size:44px">/${V.total}</span></div><div class="muted">bạn đã vào</div><div class="gl">${V.groups.map(g=>`<div>Nhóm ${g.g}: <b>${g.joined}/${g.total}</b></div>`).join('')}</div><div style="margin-top:16px">${V.bubbles.map(b=>`<span class="bub g${b.g}">${esc(b.t)}</span>`).join('')}</div></div></div>`;
-    if(R)h+='<div class="notice" style="margin-top:20px">Lượt chấm vừa rồi đã đóng. Chờ giảng viên mở nhóm tiếp theo.</div>';
+    h+=`<div class="notice" style="margin-top:30px;font-size:20px">Đã kết thúc chấm Nhóm ${S.g}. Cảm ơn các bạn.</div>`;
   }
   document.getElementById('app').innerHTML=h;tick();
 }
 function tick(){
-  const R=V&&V.round,el=document.getElementById('bc');if(!el||!R)return;
-  const n=nowS();el.textContent=n<R.startsAt?'Chuẩn bị':mmss(R.endsAt-n);el.className='big-clock'+(R.endsAt-n<=60000?' low':'');
+  const S=V&&V.session,el=document.getElementById('bc');if(!el||!S)return;
+  const n=nowS();el.textContent=n<S.startsAt?'Chuẩn bị':mmss(S.endsAt-n);el.className='big-clock'+(S.endsAt-n<=60000?' low':'');
 }
 poll();setInterval(poll,2000);setInterval(tick,250);
 </script></body></html>

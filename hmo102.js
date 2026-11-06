@@ -17,7 +17,7 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
   const PASSWORD = process.env.HMO102_PASSWORD || '';
   const TOKEN = PASSWORD ? crypto.createHmac('sha256', PASSWORD).update('hmo102-admin').digest('hex') : null;
   const FILE = path.join(DATA_DIR, 'hmo102-state.json');
-  const fresh = () => ({ roster: [], joined: {}, round: null, ratings: {}, updatedAt: Date.now() });
+  const fresh = () => ({ roster: [], joined: {}, session: null, ratings: {}, updatedAt: Date.now() });
   let H = fresh();
   try { H = Object.assign(fresh(), JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch (e) { /* trạng thái mới */ }
   let timer = null;
@@ -40,7 +40,8 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
   const members = (g) => H.roster.filter((r) => r.group === g);
   const byMssv = (m) => H.roster.find((r) => r.mssv === m);
   const userFromReq = (req) => { const t = req.headers['x-token']; if (!t) return null; const e = Object.entries(H.joined).find(([, v]) => v.token === t); return e ? byMssv(e[0]) || null : null; };
-  const roundOpen = () => !!(H.round && H.round.open && Date.now() <= H.round.endsAt + 4000);
+  const runOpen = () => !!(H.session && H.session.status === 'running' && Date.now() <= H.session.endsAt + 4000);
+  const newCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 6; i++) c += A[crypto.randomInt(A.length)]; return c; };
   const adminOk = (req) => TOKEN && (req.headers.authorization || '') === 'Bearer ' + TOKEN;
 
   // ---- tính điểm một nhóm ----
@@ -86,33 +87,40 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
   }
 
   // ---- view ----
-  const groupJoined = (g) => members(g).filter((m) => H.joined[m.mssv]).length;
+  const loggedCount = (g) => members(g).filter((m) => H.joined[m.mssv]).length;
+  const inRoomCount = () => (H.session ? Object.keys(H.session.room).length : 0);
+  const submittedCount = (g) => Object.keys(H.ratings[g] || {}).length;
   function studentView(u) {
-    const g = u.group, ms = members(g);
-    const v = { now: Date.now(), crit: CRIT, me: { mssv: u.mssv, name: u.name, group: g }, joined: groupJoined(g), total: ms.length, allJoined: Object.keys(H.joined).filter((m) => byMssv(m)).length, allTotal: H.roster.length, round: null };
-    if (H.round) {
-      const R = H.round;
-      v.round = { g: R.g, mine: R.g === g, startsAt: R.startsAt, endsAt: R.endsAt, open: roundOpen() };
-      if (R.g === g) {
-        v.round.members = ms.map((m) => ({ mssv: m.mssv, name: m.name }));
-        const mine = (H.ratings[g] || {})[u.mssv]; v.round.mine_rating = mine || null;
-        v.round.submitted = Object.keys(H.ratings[g] || {}).length;
+    const g = u.group, ms = members(g), S = H.session;
+    const v = { now: Date.now(), crit: CRIT, me: { mssv: u.mssv, name: u.name, group: g }, logged: loggedCount(g), total: ms.length, session: null };
+    if (S) {
+      const mine = S.g === g;
+      v.session = { id: S.id, g: S.g, mine, status: S.status, startsAt: S.startsAt, endsAt: S.endsAt, open: runOpen(), inRoom: mine && !!S.room[u.mssv] };
+      if (mine) {
+        v.session.roomCount = inRoomCount();
+        if (v.session.inRoom) {
+          v.session.members = ms.map((m) => ({ mssv: m.mssv, name: m.name }));
+          v.session.mine_rating = (H.ratings[g] || {})[u.mssv] || null;
+        }
       }
     }
     return v;
   }
   function screenView() {
-    const gs = groupIds();
-    const v = { now: Date.now(), joined: Object.keys(H.joined).filter((m) => byMssv(m)).length, total: H.roster.length, round: null,
-      groups: gs.map((g) => ({ g, joined: groupJoined(g), total: members(g).length })),
-      bubbles: Object.entries(H.joined).filter(([m]) => byMssv(m)).sort((a, b) => a[1].at - b[1].at).map(([m]) => ({ t: (byMssv(m).name.trim().split(/\s+/).pop() || '?').charAt(0).toUpperCase(), g: byMssv(m).group })) };
-    if (H.round) v.round = { g: H.round.g, startsAt: H.round.startsAt, endsAt: H.round.endsAt, open: roundOpen(), submitted: Object.keys(H.ratings[H.round.g] || {}).length, total: members(H.round.g).length };
+    const S = H.session;
+    const v = { now: Date.now(), roster: H.roster.length, logged: Object.keys(H.joined).filter((m) => byMssv(m)).length, session: null };
+    if (S) {
+      v.session = { g: S.g, status: S.status, startsAt: S.startsAt, endsAt: S.endsAt, open: runOpen(), inRoom: inRoomCount(), total: members(S.g).length, submitted: submittedCount(S.g),
+        bubbles: Object.entries(S.room).sort((a, b) => a[1] - b[1]).map(([m]) => (byMssv(m).name.trim().split(/\s+/).pop() || '?').charAt(0).toUpperCase()) };
+    }
     return v;
   }
   function adminView() {
-    const gs = groupIds();
-    return { now: Date.now(), configured: !!TOKEN, round: H.round && Object.assign({}, H.round, { open: roundOpen() }), total: H.roster.length,
-      groups: gs.map((g) => Object.assign(calc(g), { list: members(g).map((m) => ({ mssv: m.mssv, name: m.name, leader: !!m.leader, joined: !!H.joined[m.mssv], submitted: !!(H.ratings[g] || {})[m.mssv] })) })) };
+    const S = H.session;
+    return { now: Date.now(), configured: !!TOKEN, total: H.roster.length,
+      session: S && Object.assign({}, S, { open: runOpen(), inRoom: inRoomCount(), submitted: submittedCount(S.g) }),
+      hasResults: Object.keys(H.ratings).some((g) => submittedCount(g) > 0),
+      groups: groupIds().map((g) => Object.assign(calc(g), { list: members(g).map((m) => ({ mssv: m.mssv, name: m.name, leader: !!m.leader, logged: !!H.joined[m.mssv], inRoom: !!(S && S.g === g && S.room[m.mssv]), submitted: !!(H.ratings[g] || {})[m.mssv] })) })) };
   }
 
   async function report() {
@@ -171,12 +179,15 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
     if (p === '/h/qr.svg') {
       const proto = (req.headers['x-forwarded-proto'] || 'http').split(',')[0];
       const base = process.env.PUBLIC_URL || `${proto}://${req.headers.host}`;
-      const svg = await QRCode.toString(base + '/hmo102', { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+      const S = H.session, room = url.searchParams.get('mode') === 'room';
+      if (room && !(S && S.status !== 'ended')) { res.writeHead(404); res.end(); return true; }
+      const svg = await QRCode.toString(room ? `${base}/hmo102?r=${S.code}` : `${base}/hmo102`, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
       res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' }); res.end(svg); return true;
     }
-    if (p === '/api/h/join' && req.method === 'POST') {
+    // ---- sinh viên ----
+    if (p === '/api/h/join' && req.method === 'POST') {   // đăng nhập: nhận nhóm theo MSSV + họ tên
       const b = await readJson(req);
-      if (!H.roster.length) { fail(res, 409, 'Giảng viên chưa mở phòng chờ. Vui lòng chờ.'); return true; }
+      if (!H.roster.length) { fail(res, 409, 'Giảng viên chưa nạp danh sách. Vui lòng chờ.'); return true; }
       const mssv = String(b.mssv || '').trim().toUpperCase(), name = String(b.name || '').trim();
       if (!mssv || !name) { fail(res, 400, 'Vui lòng nhập đủ MSSV và họ tên.'); return true; }
       const u = byMssv(mssv);
@@ -187,11 +198,22 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
     }
     if (p === '/api/h/state') { const u = userFromReq(req); if (u) send(res, 200, studentView(u)); else fail(res, 401, 'Phiên không hợp lệ.'); return true; }
     if (p === '/api/h/screen') { send(res, 200, screenView()); return true; }
+    if (p === '/api/h/enter' && req.method === 'POST') {   // quét QR: vào phòng chờ
+      const u = userFromReq(req); if (!u) { fail(res, 401, 'Hãy đăng nhập bằng MSSV và họ tên trước.'); return true; }
+      const b = await readJson(req), S = H.session;
+      if (!S || S.status === 'ended') { fail(res, 409, 'Chưa có phòng chờ đang mở. Đợi giảng viên tạo mã QR.'); return true; }
+      if (S.g !== u.group) { fail(res, 403, 'Phòng chờ này dành cho Nhóm ' + S.g + '. Nhóm của bạn (Nhóm ' + u.group + ') chưa đến lượt.'); return true; }
+      if (String(b.code || '').trim().toUpperCase() !== S.code) { fail(res, 403, 'Mã phòng không đúng. Hãy quét lại QR trên màn hình.'); return true; }
+      if (!S.room[u.mssv]) { S.room[u.mssv] = Date.now(); save(); }
+      send(res, 200, studentView(u)); return true;
+    }
     if (p === '/api/h/rate' && req.method === 'POST') {
-      const u = userFromReq(req); if (!u) { fail(res, 401, 'Phiên không hợp lệ. Vào lại từ mã QR.'); return true; }
-      if (!H.round || H.round.g !== u.group) { fail(res, 409, 'Nhóm của bạn hiện chưa được mở chấm.'); return true; }
-      if (Date.now() < H.round.startsAt - 500) { fail(res, 409, 'Chưa đến giờ chấm.'); return true; }
-      if (!roundOpen()) { fail(res, 409, 'Đã hết giờ hoặc giảng viên đã đóng chấm.'); return true; }
+      const u = userFromReq(req); if (!u) { fail(res, 401, 'Phiên không hợp lệ. Hãy đăng nhập lại.'); return true; }
+      const S = H.session;
+      if (!S || S.g !== u.group || !S.room[u.mssv]) { fail(res, 409, 'Bạn chưa ở trong phòng chờ của nhóm mình.'); return true; }
+      if (S.status !== 'running') { fail(res, 409, S.status === 'ended' ? 'Giảng viên đã kết thúc chấm.' : 'Giảng viên chưa bấm bắt đầu.'); return true; }
+      if (Date.now() < S.startsAt - 500) { fail(res, 409, 'Chưa đến giờ chấm.'); return true; }
+      if (!runOpen()) { fail(res, 409, 'Đã hết giờ chấm.'); return true; }
       const b = await readJson(req), r = normalizeSubmission(u.group, u.mssv, b);
       if (r.error) { fail(res, 400, r.error); return true; }
       (H.ratings[u.group] = H.ratings[u.group] || {})[u.mssv] = { at: Date.now(), v: r.v };
@@ -219,27 +241,31 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
       Object.keys(H.joined).forEach((m) => { if (!byMssv(m)) delete H.joined[m]; });
       save(); send(res, 200, { ok: true, added: rows.length, groups: groupIds().length }); return true;
     }
-    const b = await readJson(req);
-    if (p === '/api/h/admin/start') {
+    const b = await readJson(req), S = H.session;
+    if (p === '/api/h/admin/create') {   // thiết lập nhóm + thời gian, tạo mã QR phòng chờ
       const g = Number(b.g), mins = Number(b.minutes);
+      if (S && S.status !== 'ended') { fail(res, 409, 'Đang có một phiên chưa kết thúc.'); return true; }
       if (!groupIds().includes(g)) { fail(res, 400, 'Chọn nhóm cần chấm.'); return true; }
       if (![5, 10, 15, 20].includes(mins)) { fail(res, 400, 'Chọn 5, 10, 15 hoặc 20 phút.'); return true; }
-      const s = Date.now() + 3000;
-      H.round = { g, minutes: mins, startsAt: s, endsAt: s + mins * 60000, open: true }; save(); send(res, 200, { ok: true }); return true;
+      H.session = { id: Date.now(), g, minutes: mins, code: newCode(), status: 'open', createdAt: Date.now(), startsAt: 0, endsAt: 0, room: {} };
+      save(); send(res, 200, { ok: true }); return true;
+    }
+    if (p === '/api/h/admin/start') {
+      if (!S || S.status !== 'open') { fail(res, 409, 'Chưa có phòng chờ đang mở.'); return true; }
+      S.status = 'running'; S.startsAt = Date.now() + 3000; S.endsAt = S.startsAt + S.minutes * 60000; save(); send(res, 200, { ok: true }); return true;
     }
     if (p === '/api/h/admin/extend') {
-      if (!H.round) { fail(res, 409, 'Chưa có lượt chấm.'); return true; }
-      H.round.endsAt = Math.max(H.round.endsAt, Date.now()) + (Number(b.minutes) || 5) * 60000; H.round.open = true; save(); send(res, 200, { ok: true }); return true;
+      if (!S || S.status !== 'running') { fail(res, 409, 'Chưa đang chấm.'); return true; }
+      S.endsAt = Math.max(S.endsAt, Date.now()) + (Number(b.minutes) || 5) * 60000; save(); send(res, 200, { ok: true }); return true;
     }
-    if (p === '/api/h/admin/stop') { if (H.round) { H.round.open = false; H.round.endsAt = Math.min(H.round.endsAt, Date.now()); } save(); send(res, 200, { ok: true }); return true; }
-    if (p === '/api/h/admin/lobby') { H.round = null; save(); send(res, 200, { ok: true }); return true; }   // quay về phòng chờ để chọn nhóm khác
-    if (p === '/api/h/admin/clear') {   // xóa điểm một nhóm để chấm lại
+    if (p === '/api/h/admin/end') { if (S && S.status !== 'ended') { S.status = 'ended'; S.endsAt = Math.min(S.endsAt || Date.now(), Date.now()); } save(); send(res, 200, { ok: true }); return true; }
+    if (p === '/api/h/admin/cancel') { if (S && S.status === 'open') H.session = null; save(); send(res, 200, { ok: true }); return true; }   // hủy phòng chờ chưa bắt đầu
+    if (p === '/api/h/admin/next') { if (S && S.status === 'ended') H.session = null; save(); send(res, 200, { ok: true }); return true; }   // chuẩn bị chấm nhóm khác
+    if (p === '/api/h/admin/clear') {
       const g = Number(b.g); if (b.confirm !== 'XOA') { fail(res, 400, 'Cần xác nhận.'); return true; }
       delete H.ratings[g]; save(); send(res, 200, { ok: true }); return true;
     }
-    if (p === '/api/h/admin/reset') {   // đăng xuất toàn bộ bạn trong phòng chờ (giữ điểm)
-      H.joined = {}; H.round = null; save(); send(res, 200, { ok: true }); return true;
-    }
+    if (p === '/api/h/admin/reset') { H.joined = {}; H.session = null; save(); send(res, 200, { ok: true }); return true; }
     fail(res, 404, 'Không tìm thấy.'); return true;
   };
 };

@@ -18,7 +18,7 @@ document.getElementById('mascot').innerHTML=DOODLE('');
 const CRIT=[{k:'rep',t:'Nội dung báo cáo',d:'Mức đóng góp vào nội dung, số liệu và chất lượng báo cáo.'},{k:'pre',t:'Slide và thuyết trình',d:'Đóng góp vào slide và phần trình bày, trả lời câu hỏi.'},{k:'res',t:'Trách nhiệm và đúng hạn',d:'Hoàn thành phần việc được giao, đúng hạn, chủ động.'},{k:'col',t:'Hợp tác và giao tiếp',d:'Lắng nghe, phối hợp, hỗ trợ và giữ thái độ tích cực với nhóm.'}];
 const LV={1:'Rất yếu',2:'Yếu',3:'Đạt',4:'Tốt',5:'Xuất sắc'};
 const LS='hmo102-h-v1';
-const S={tok:'',me:null,v:null,draft:null,err:'',msg:'',busy:false,mode:'',sent:null,rk:0};
+const S={room:'',entering:false,tok:'',me:null,v:null,draft:null,err:'',msg:'',busy:false,mode:'',sent:null,rk:0};
 const app=document.getElementById('app'),bar=document.getElementById('bar'),tm=document.getElementById('timer');
 function load(){try{const o=JSON.parse(localStorage.getItem(LS)||'null');if(o){S.tok=o.tok||'';S.draft=o.draft||null;S.sent=o.sent||null}}catch(e){}}
 function save(){try{localStorage.setItem(LS,JSON.stringify({tok:S.tok,draft:S.draft,sent:S.sent}))}catch(e){}}
@@ -33,20 +33,29 @@ function initDraft(R){
   S.draft=d;if(old)S.sent=old.at;save();
 }
 function loginView(){
-  app.innerHTML=`<div class="card"><h2>Vào phòng chờ</h2><p class="muted small" style="margin:0">Nhập MSSV và họ tên có dấu như trong danh sách lớp. Hệ thống tự nhận ra nhóm của bạn.</p>
+  app.innerHTML=`<div class="card"><h2>Đăng nhập</h2><p class="muted small" style="margin:0">Nhập MSSV và họ tên có dấu như trong danh sách lớp. Hệ thống tự nhận ra nhóm của bạn.</p>
   <label class="f" for="mssv">MSSV</label><input id="mssv" type="text" autocomplete="off" autocapitalize="characters" placeholder="Ví dụ DS210398">
   <label class="f" for="nm">Họ và tên</label><input id="nm" type="text" autocomplete="off" placeholder="Ví dụ Nguyễn Văn A">
-  <div class="err" id="err">${esc(S.err)}</div><div style="margin-top:14px"><button class="btn" data-act="join" ${S.busy?'disabled':''}>Vào phòng chờ</button></div></div>`;
+  <div class="err" id="err">${esc(S.err)}</div><div style="margin-top:14px"><button class="btn" data-act="join" ${S.busy?'disabled':''}>Đăng nhập</button></div></div>`;
   bar.innerHTML='';tm.hidden=true;
 }
-function lobbyView(v,kind){
-  const R=v.round;
-  let h=`<div class="card"><div class="eyebrow">Nhóm ${v.me.group}</div><h2 style="margin:2px 0 0">Xin chào ${esc(v.me.name)}</h2><p class="small muted" style="margin:8px 0 0">Bạn đã vào phòng chờ. Đừng thoát trang này.</p>
-  <div class="big-clock" style="font-size:54px">${v.joined}/${v.total}</div><div class="small muted" style="text-align:center">bạn trong nhóm đã vào phòng chờ</div></div>`;
-  if(kind==='other')h+=`<div class="notice">Hiện giảng viên đang mở chấm <b>Nhóm ${R.g}</b>. Nhóm của bạn chưa đến lượt, bạn cứ ở trang này.</div>`;
-  else if(kind==='done')h+=`<div class="notice">Lượt chấm của nhóm bạn đã đóng. Cảm ơn bạn.</div>`;
-  else h+='<div class="notice">Chờ giảng viên thông báo và bấm bắt đầu. Phiếu chấm sẽ tự mở trên máy bạn.</div>';
+function head(v){return `<div class="card"><div class="eyebrow">Nhóm ${v.me.group}</div><h2 style="margin:2px 0 0">Xin chào ${esc(v.me.name)}</h2><p class="small muted" style="margin:8px 0 0">Bạn đã đăng nhập. Đừng thoát trang này.</p></div>`}
+function waitQrView(v){
+  const R=v.session;let h=head(v);
+  if(R&&!R.mine&&R.status!=='ended')h+=`<div class="notice">Giảng viên đang mở chấm <b>Nhóm ${R.g}</b>. Nhóm của bạn chưa đến lượt, bạn cứ ở trang này.</div>`;
+  else if(R&&R.mine&&R.status==='ended')h+='<div class="notice">Lượt chấm của nhóm bạn đã kết thúc. Cảm ơn bạn.</div>';
+  else h+='<div class="notice">Đợi giảng viên tạo mã QR. Khi có QR trên màn hình, bạn quét để vào phòng chờ.</div>';
   app.innerHTML=h;bar.innerHTML='';
+}
+function scanView(v){
+  const R=v.session;
+  app.innerHTML=head(v)+`<div class="card"><h3>Mã QR đã sẵn sàng</h3><p class="small muted" style="margin:6px 0 0">Dùng camera điện thoại quét mã QR trên màn hình để vào phòng chờ. Nếu quét không vào được, nhập mã phòng ghi dưới QR.</p>
+  <label class="f" for="rc">Mã phòng</label><input id="rc" type="text" autocomplete="off" autocapitalize="characters" placeholder="Ví dụ K7M2QX" value="${esc(S.room||'')}"><div class="err">${esc(S.err)}</div>
+  <div style="margin-top:14px"><button class="btn brass" data-act="enter">Vào phòng chờ</button></div></div>`;bar.innerHTML='';
+}
+function lobbyView(v){
+  const R=v.session;
+  app.innerHTML=head(v)+`<div class="card"><div class="big-clock" style="font-size:54px">${R.roomCount}/${v.total}</div><div class="small muted" style="text-align:center">bạn trong nhóm đã vào phòng chờ</div></div><div class="notice">Bạn đã ở trong phòng chờ. Chờ giảng viên bấm bắt đầu, phiếu chấm sẽ tự mở.</div>`;bar.innerHTML='';
 }
 function personCard(m,v,isSelf,open){
   const low=CRIT.some(c=>v[c.k]&&v[c.k]<3),ok=ready(v,isSelf),w=isSelf?'self':m.mssv;
@@ -61,7 +70,7 @@ function personCard(m,v,isSelf,open){
   return h;
 }
 function gradeView(v){
-  const R=v.round,open=R.open&&nowS()>=R.startsAt-300;initDraft(R);
+  const R=v.session,open=R.open&&nowS()>=R.startsAt-300;initDraft(R);
   const peers=R.members.filter(m=>m.mssv!==S.me.mssv),me=R.members.find(m=>m.mssv===S.me.mssv);
   let h=`<div class="card"><div class="eyebrow">Nhóm ${v.me.group}</div><h2 style="margin:2px 0 0">Xin chào ${esc(v.me.name)}</h2><p class="small muted" style="margin:10px 0 0">Chấm từ 1 đến 5 cho 4 tiêu chí. Dưới 3 ở bất kỳ tiêu chí nào thì cần ghi lý do. Bạn nộp lại được đến khi hết giờ, bài nộp sau cùng là bài được tính.</p></div>`;
   if(S.sent)h+=`<div class="notice">Bạn đã nộp. ${open?'Muốn sửa thì chỉnh bên dưới rồi bấm Nộp lại.':''}</div>`;
@@ -72,28 +81,32 @@ function gradeView(v){
 }
 function missing(peers){let n=0;peers.forEach(m=>{if(!ready(S.draft.scores[m.mssv],false))n++});return n}
 function drawBar(peers,open){
-  const R=S.v.round,miss=missing(peers),total=peers.length,done=total-miss;
+  const R=S.v.session,miss=missing(peers),total=peers.length,done=total-miss;
   bar.innerHTML=`<div class="bar"><div class="in"><div class="prog"><div class="small"><b>${done}/${total}</b> bạn đã chấm xong${S.msg?` · <span class="ok">${esc(S.msg)}</span>`:''}${S.err?` · <span style="color:#ffb3c2">${esc(S.err)}</span>`:''}</div><div class="track"><div class="fill" style="width:${total?done/total*100:0}%"></div></div></div><button class="btn brass" data-act="submit" ${(!open||miss||S.busy)?'disabled':''}>${S.sent?'Nộp lại':'Nộp bài chấm'}</button></div></div>`;
 }
 function modeOf(v){
-  const R=v.round;
-  if(!R)return 'lobby';
-  if(!R.mine)return R.open?'other':'lobby';
+  const R=v.session;
+  if(!R||!R.mine)return 'waitqr';
+  if(R.status==='ended')return R.inRoom&&S.sent?'done':'waitqr';
+  if(!R.inRoom)return 'scan';
+  if(R.status==='open')return 'lobby';
   if(nowS()<R.startsAt-300)return 'count';
   return 'grade';
 }
 function paint(){
   const v=S.v;if(!v)return;
-  const m=modeOf(v),sig=m+(v.round?':'+v.round.startsAt+':'+v.round.open:'');
+  const m=modeOf(v),R=v.session,sig=m+(R?':'+R.id+':'+R.status+':'+R.open+':'+(m==='lobby'?R.roomCount:''):'');
   if(sig===S.sig)return;S.sig=sig;
-  if(m==='lobby')lobbyView(v,v.round&&v.round.mine?'done':'');
-  else if(m==='other')lobbyView(v,'other');
-  else if(m==='count'){app.innerHTML='<div class="card"><div class="eyebrow">Sắp bắt đầu</div><div class="big-clock" id="cd">3</div><div class="small muted" style="text-align:center">Chuẩn bị, phiếu chấm sắp mở</div></div>';bar.innerHTML=''}
+  if(m==='waitqr')waitQrView(v);
+  else if(m==='scan')scanView(v);
+  else if(m==='lobby')lobbyView(v);
+  else if(m==='done')app.innerHTML=head(v)+'<div class="notice">Giảng viên đã kết thúc chấm. Cảm ơn bạn đã nộp bài.</div>',bar.innerHTML='';
+  else if(m==='count'){app.innerHTML=head(v)+'<div class="card"><div class="eyebrow">Sắp bắt đầu</div><div class="big-clock" id="cd">3</div><div class="small muted" style="text-align:center">Chuẩn bị, phiếu chấm sắp mở</div></div>';bar.innerHTML=''}
   else gradeView(v);
 }
 function tick(){
-  const v=S.v;if(!v||!v.round||!v.round.mine){tm.hidden=true;return}
-  const R=v.round,n=nowS();
+  const v=S.v,R=v&&v.session;if(!R||!R.mine||!R.inRoom||R.status!=='running'){tm.hidden=true;return}
+  const n=nowS();
   if(n<R.startsAt){tm.hidden=true;const c=document.getElementById('cd');if(c)c.textContent=Math.max(1,Math.ceil((R.startsAt-n)/1000));if(n>=R.startsAt-300){S.sig='';paint()}return}
   const left=R.endsAt-n;tm.hidden=false;
   tm.className='timer'+(left<=0||!R.open?' over':left<=60000?' low':'');
@@ -104,26 +117,35 @@ function tick(){
 async function poll(){
   if(!S.tok)return;
   try{const v=await api('/api/h/state',{headers:{'X-Token':S.tok}});syncNow(v.now);
-    if(S.v&&S.v.round&&v.round&&v.round.startsAt!==S.v.round.startsAt){S.sig='';S.closedPainted=false}
-    S.v=v;S.me=v.me;paint();tick();
+    const o=S.v&&S.v.session,nw=v.session;if((o&&o.id)!==(nw&&nw.id)||(o&&nw&&o.startsAt!==nw.startsAt)){S.sig='';S.closedPainted=false}
+    S.v=v;S.me=v.me;
+    if(S.room&&nw&&nw.mine&&!nw.inRoom&&nw.status!=='ended'&&!S.entering){await tryEnter(S.room,true);return}
+    paint();tick();
   }catch(e){if(e.status===401){S.tok='';S.me=null;S.v=null;S.sig='';save();loginView()}}
+}
+async function tryEnter(code,quiet){
+  S.entering=true;
+  try{const v=await api('/api/h/enter',{method:'POST',headers:{'X-Token':S.tok},body:JSON.stringify({code})});S.v=v;S.sig='';S.err='';S.room='';syncNow(v.now)}
+  catch(e){S.err=quiet?'':e.message;if(quiet&&e.status===403)S.room=''}
+  S.entering=false;paint();tick();
 }
 function refreshCard(who){
   const el=document.querySelector(`[data-card="${CSS.escape(who)}"]`);if(!el)return;
-  const R=S.v.round,m=who==='self'?R.members.find(x=>x.mssv===S.me.mssv):R.members.find(x=>x.mssv===who),vv=who==='self'?S.draft.self:S.draft.scores[who];
+  const R=S.v.session,m=who==='self'?R.members.find(x=>x.mssv===S.me.mssv):R.members.find(x=>x.mssv===who),vv=who==='self'?S.draft.self:S.draft.scores[who];
   const t=document.createElement('div');t.innerHTML=personCard(m,vv,who==='self',R.open&&nowS()<=R.endsAt+3000);el.replaceWith(t.firstElementChild);
 }
-function redraw(){const R=S.v.round;drawBar(R.members.filter(m=>m.mssv!==S.me.mssv),R.open&&nowS()<=R.endsAt+3000)}
+function redraw(){const R=S.v.session;drawBar(R.members.filter(m=>m.mssv!==S.me.mssv),R.open&&nowS()<=R.endsAt+3000)}
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
   if(a==='join'){
     const mssv=document.getElementById('mssv').value.trim(),name=document.getElementById('nm').value.trim();
     if(!mssv||!name){S.err='Nhập đủ MSSV và họ tên.';return loginView()}
     S.busy=true;S.err='';
-    try{const v=await api('/api/h/join',{method:'POST',body:JSON.stringify({mssv,name})});S.tok=v.token;S.v=v;S.me=v.me;S.sig='';S.busy=false;save();syncNow(v.now);paint();tick()}
+    try{const v=await api('/api/h/join',{method:'POST',body:JSON.stringify({mssv,name})});S.tok=v.token;S.v=v;S.me=v.me;S.sig='';S.busy=false;save();syncNow(v.now);paint();tick();poll()}
     catch(x){S.busy=false;S.err=x.message;loginView();document.getElementById('mssv').value=mssv;document.getElementById('nm').value=name}
   }
   else if(a==='star'){const w=b.dataset.who,t=w==='self'?S.draft.self:S.draft.scores[w];t[b.dataset.k]=+b.dataset.v;S.msg='';S.err='';save();refreshCard(w);redraw()}
+  else if(a==='enter'){const c=(document.getElementById('rc').value||'').trim().toUpperCase();if(!c){S.err='Nhập mã phòng.';S.sig='';return paint()}await tryEnter(c,false)}
   else if(a==='submit')await submit();
 });
 document.addEventListener('input',e=>{
@@ -132,7 +154,7 @@ document.addEventListener('input',e=>{
   const pill=t.closest('.card').querySelector('.done'),ok=ready(vv,w==='self');pill.className='done'+(ok?' y':'');pill.textContent=ok?'Xong':'Chưa xong';redraw();
 });
 async function submit(){
-  const R=S.v.round;S.busy=true;S.err='';redraw();
+  const R=S.v.session;S.busy=true;S.err='';redraw();
   const r={};Object.entries(S.draft.scores).forEach(([id,x])=>{r[id]=[x.rep,x.pre,x.res,x.col,x.comment.trim()]});
   const s=S.draft.self,body={r};if(ready(s,true))body.self=[s.rep,s.pre,s.res,s.col,s.comment.trim()];
   try{const j=await api('/api/h/rate',{method:'POST',headers:{'X-Token':S.tok},body:JSON.stringify(body)});S.sent=j.at;S.msg='Đã gửi cho giảng viên'}
@@ -140,6 +162,7 @@ async function submit(){
   S.busy=false;save();redraw();
 }
 load();
+try{const r=new URLSearchParams(location.search).get('r');if(r){S.room=r.trim().toUpperCase();history.replaceState(null,'','/hmo102')}}catch(e){}
 if(S.tok){poll()}else loginView();
 setInterval(poll,2000);setInterval(tick,250);
 </script></body></html>
