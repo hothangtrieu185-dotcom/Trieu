@@ -2,19 +2,19 @@
 <html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Đánh giá đồng đội</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Itim&display=swap">
 <link rel="stylesheet" href="style.css">
 </head><body>
-<header class="band"><div class="in">
-  <div class="eyebrow">HMO102 · Final Project · FA26</div>
-  <h1>Đánh giá đồng đội</h1>
-  <p>Chấm đóng góp của từng thành viên trong nhóm. Điểm bạn chấm được ẩn danh với các bạn khác.</p>
-</div></header>
 <div id="timer" class="timer" hidden></div>
-<div class="wrap" id="app"><div class="empty">Đang tải danh sách nhóm...</div></div>
+<main class="sheet">
+<header class="hero"><div><div class="eyebrow">HMO102 · Final Project · FA26</div><h1>Đánh giá đồng đội</h1><p>Chấm đóng góp của từng thành viên trong nhóm. Điểm bạn chấm được ẩn danh với các bạn khác.</p></div><div id="mascot"></div></header>
+<div id="app"><div class="empty">Đang tải danh sách nhóm...</div></div>
+</main>
 <div id="bar"></div>
+<script src="doodle.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
+<script>document.getElementById("mascot").innerHTML=DOODLE("");</script>
 <script>
 const LS='hmo102-peer-v1';
 const S={me:null,draft:null,pick:{gid:'',mid:''},err:'',msg:'',busy:false,sent:null,lastCode:''};
