@@ -197,6 +197,12 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
       send(res, 200, Object.assign({ token: j.token }, studentView(u))); return true;
     }
     if (p === '/api/h/state') { const u = userFromReq(req); if (u) send(res, 200, studentView(u)); else fail(res, 401, 'Phiên không hợp lệ.'); return true; }
+    if (p === '/api/h/leave' && req.method === 'POST') {   // đăng xuất: rời phòng chờ nếu chưa bắt đầu chấm
+      const u = userFromReq(req); if (!u) { send(res, 200, { ok: true }); return true; }
+      const S = H.session;
+      if (!S || S.status !== 'running') { if (S && S.room) delete S.room[u.mssv]; delete H.joined[u.mssv]; save(); }
+      send(res, 200, { ok: true }); return true;
+    }
     if (p === '/api/h/screen') { send(res, 200, screenView()); return true; }
     if (p === '/api/h/enter' && req.method === 'POST') {   // quét QR: vào phòng chờ
       const u = userFromReq(req); if (!u) { fail(res, 401, 'Hãy đăng nhập bằng MSSV và họ tên trước.'); return true; }

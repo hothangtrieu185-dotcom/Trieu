@@ -39,7 +39,7 @@ function loginView(){
   <div class="err" id="err">${esc(S.err)}</div><div style="margin-top:14px"><button class="btn" data-act="join" ${S.busy?'disabled':''}>Đăng nhập</button></div></div>`;
   bar.innerHTML='';tm.hidden=true;
 }
-function head(v){return `<div class="card"><div class="eyebrow">Nhóm ${v.me.group}</div><h2 style="margin:2px 0 0">Xin chào ${esc(v.me.name)}</h2><p class="small muted" style="margin:8px 0 0">Bạn đã đăng nhập. Đừng thoát trang này.</p></div>`}
+function head(v){return `<div class="card"><div class="eyebrow">Nhóm ${v.me.group}</div><h2 style="margin:2px 0 0">Xin chào ${esc(v.me.name)}</h2><p class="small muted" style="margin:8px 0 0">Bạn đã đăng nhập. Đừng thoát trang này.</p><div style="margin-top:12px"><button class="btn ghost sm" data-act="logout">Đăng xuất</button></div></div>`}
 function waitQrView(v){
   const R=v.session;let h=head(v);
   if(R&&!R.mine&&R.status!=='ended')h+=`<div class="notice">Giảng viên đang mở chấm <b>Nhóm ${R.g}</b>. Nhóm của bạn chưa đến lượt, bạn cứ ở trang này.</div>`;
@@ -147,6 +147,12 @@ document.addEventListener('click',async e=>{
   else if(a==='star'){const w=b.dataset.who,t=w==='self'?S.draft.self:S.draft.scores[w];t[b.dataset.k]=+b.dataset.v;S.msg='';S.err='';save();refreshCard(w);redraw()}
   else if(a==='enter'){const c=(document.getElementById('rc').value||'').trim().toUpperCase();if(!c){S.err='Nhập mã phòng.';S.sig='';return paint()}await tryEnter(c,false)}
   else if(a==='submit')await submit();
+  else if(a==='logout'){
+    if(!confirm('Đăng xuất khỏi phòng chờ?'))return;
+    try{await api('/api/h/leave',{method:'POST',headers:{'X-Token':S.tok},body:'{}'})}catch(x){}
+    S.tok='';S.me=null;S.v=null;S.draft=null;S.sent=null;S.sig='';S.err='';S.msg='';S.room='';try{history.replaceState(null,'',location.pathname)}catch(x){}
+    save();tm.hidden=true;bar.innerHTML='';loginView();
+  }
 });
 document.addEventListener('input',e=>{
   const t=e.target;if(!t.dataset||t.dataset.act!=='cmt')return;

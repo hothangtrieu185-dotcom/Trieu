@@ -6,16 +6,25 @@
 <link rel="stylesheet" href="/hmo102/h.css">
 <style>.sheet{max-width:980px}.gh{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;margin-top:8px}.who{font-size:13px;padding:5px 8px;border:1.5px solid var(--line);border-radius:8px}.who.y{border-color:var(--ink);background:var(--soft)}.who.r{border-color:var(--wine);background:var(--wine-soft)}
 .step{display:flex;gap:10px;align-items:center}.sn{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-family:var(--hand);font-size:17px}.sn.on{background:var(--wine)}.sn.ok{background:var(--ok)}
-.qrw{display:grid;grid-template-columns:minmax(200px,260px) 1fr;gap:18px;align-items:center;margin-top:10px}@media(max-width:620px){.qrw{grid-template-columns:1fr}}.rc{font-family:var(--hand);font-size:44px;letter-spacing:.12em;color:var(--wine)}</style>
+.qrw{display:grid;grid-template-columns:minmax(200px,260px) 1fr;gap:18px;align-items:center;margin-top:10px}@media(max-width:620px){.qrw{grid-template-columns:1fr}}.rc{font-family:var(--hand);font-size:44px;letter-spacing:.12em;color:var(--wine)}
+.abar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--ink);color:#fff;border-top:3px solid var(--wine);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px))}
+.abar .in{max-width:980px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between}
+.abar .btn{border-color:#fff;box-shadow:0 3px 0 #fff}.abar .btn.brass{background:var(--wine)}.abar .btn.ghost{background:#fff;color:var(--ink)}
+.abar b.clk{font-family:var(--hand);font-size:34px;font-weight:400;letter-spacing:.05em}
+body{padding-bottom:110px}
+</style>
 </head><body>
 <main class="sheet">
-<header class="hero"><div><div class="eyebrow">Giảng viên</div><h1>Quản trị chấm chéo</h1><p>Mỗi lượt chấm là một nhóm: thiết lập, tạo QR, chờ vào phòng, bắt đầu, kết thúc, tải kết quả.</p></div></header>
+<header class="hero"><div><div class="eyebrow">Giảng viên</div><h1>Quản trị chấm chéo</h1><p>Mỗi lượt chấm là một nhóm: thiết lập, tạo QR, chờ vào phòng, bắt đầu, kết thúc, tải kết quả.</p><p style="margin-top:10px"><a class="btn brass sm" href="/hmo102/screen" target="hmo102screen" rel="noopener" style="display:inline-block;text-decoration:none">🖥️ Mở màn hình chiếu cho sinh viên (tab mới)</a></p></div></header>
 <div id="app"></div>
 </main>
 <script src="/hmo102/common.js"></script>
 <script>
 const LS='hmo102-h-admin';
 let TOK='';try{TOK=localStorage.getItem(LS)||''}catch(e){}
+let restoring=false;const RK='hmo102-h-roster';
+function cachedRoster(){try{const b=localStorage.getItem(RK);if(!b)return null;const bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}catch(e){return null}}
+function cacheRoster(buf){try{const u=new Uint8Array(buf);let bin='';for(let i=0;i<u.length;i+=8192)bin+=String.fromCharCode.apply(null,u.subarray(i,i+8192));localStorage.setItem(RK,btoa(bin))}catch(e){}}
 let ST=null,SEL=null,MIN=10,ERR='',MSG='',lastSig='';
 const H=()=>({Authorization:'Bearer '+TOK});
 const app=document.getElementById('app');
@@ -24,7 +33,9 @@ function login(){
 }
 async function refresh(){
   if(!TOK)return;
-  try{ST=await api('/api/h/admin/state',{headers:H()});syncNow(ST.now);draw()}
+  try{ST=await api('/api/h/admin/state',{headers:H()});syncNow(ST.now);
+    if(!ST.total&&!restoring){const c=cachedRoster();if(c){restoring=true;try{const r=await fetch('/api/h/admin/roster',{method:'POST',headers:H(),body:c});const j=await r.json();if(r.ok){MSG='Máy chủ vừa khởi động lại, đã tự nạp lại danh sách lớp ('+j.added+' bạn, '+j.groups+' nhóm).';ST=await api('/api/h/admin/state',{headers:H()})}}catch(x){}restoring=false}}
+    draw()}
   catch(e){if(e.status===401){TOK='';login()}else{ERR=e.message}}
 }
 const stepHead=(n,t,st)=>`<div class="step"><div class="sn ${st}">${st==='ok'?'✓':n}</div><h3>${t}</h3></div>`;
@@ -48,7 +59,7 @@ function draw(){
   const hasRoster=ST.total>0;
   // Bước 1
   h+=`<div class="card">${stepHead(1,'Danh sách lớp',hasRoster?'ok':'on')}<p class="small muted" style="margin:6px 0 0">${hasRoster?`Đã nạp <b>${ST.total}</b> bạn, <b>${ST.groups.length}</b> nhóm.`:'Chọn file bảng điểm .xlsx của lớp (cột MSSV, Họ tên, Nhóm).'} Bạn không có nhóm sẽ tự bị loại.</p><div class="row" style="margin-top:10px"><input type="file" id="fx" accept=".xlsx" style="display:none"><button class="btn ghost sm" data-act="pick" ${S&&S.status!=='ended'?'disabled':''}>${hasRoster?'Nạp lại danh sách':'Chọn file danh sách'}</button></div></div>`;
-  if(!ST.groups.length){app.innerHTML=h+`<div class="err">${esc(ERR)}</div>`;return}
+  if(!ST.groups.length){app.innerHTML=h+`<div class="card">${stepHead(2,'Thiết lập lượt chấm','')}<p class="small muted" style="margin:6px 0 0">Nạp danh sách lớp ở bước 1 trước, rồi chọn nhóm và thời gian chấm.</p></div><div class="card">${stepHead(3,'Tạo mã QR và chờ cả nhóm vào phòng','')}<div style="margin-top:10px"><button class="btn brass" disabled>Tạo mã QR</button></div></div>${ERR?`<div class="err">${esc(ERR)}</div>`:''}${MSG?`<div class="ok small">${esc(MSG)}</div>`:''}`;return}
   const sg=ST.groups.find(g=>g.g===SEL);
   const active=S&&S.status!=='ended';
   // Bước 2
@@ -88,11 +99,15 @@ function draw(){
   }
   if(!S&&ST.hasResults)h+=`<div class="card"><h3>Kết quả đã có</h3><div class="row" style="margin-top:10px"><button class="btn brass sm" data-act="xlsx">Tải file Excel kết quả</button></div></div>`;
   h+=`<div class="card"><h3>Công cụ</h3><div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="clear">Xóa điểm Nhóm ${SEL} để chấm lại</button><button class="btn ghost sm" data-act="reset">Đăng xuất tất cả sinh viên</button></div></div>`;
+  if(S&&S.status==='open')h+=`<div class="abar"><div class="in"><div><div class="small" style="opacity:.8">Phòng chờ Nhóm ${S.g}</div><b style="font-size:18px">${S.inRoom}/${sg.total} bạn đã vào phòng</b></div><button class="btn brass" data-act="start">▶ Bắt đầu chấm (${S.minutes} phút)</button></div></div>`;
+  else if(S&&S.status==='running')h+=`<div class="abar"><div class="in"><div><div class="small" style="opacity:.8">Đang chấm Nhóm ${S.g} · đã nộp ${S.submitted}/${sg.total}</div><b class="clk" id="abc"></b></div><div class="row"><button class="btn ghost sm" data-act="extend">+5 phút</button><button class="btn brass" data-act="end">■ Kết thúc chấm</button></div></div></div>`;
+  else if(S&&S.status==='ended')h+=`<div class="abar"><div class="in"><b style="font-size:18px">Nhóm ${S.g} đã chấm xong</b><div class="row"><button class="btn brass" data-act="xlsx">⬇ Tải file Excel kết quả</button><button class="btn ghost sm" data-act="next">Chấm nhóm khác</button></div></div></div>`;
+  else if(!S&&sg)h+=`<div class="abar"><div class="in"><b style="font-size:18px">Nhóm ${SEL} · ${MIN} phút</b><button class="btn brass" data-act="create">Tạo mã QR cho Nhóm ${SEL}</button></div></div>`;
   app.innerHTML=h;tick();
 }
 function tick(){
   const S=ST&&ST.session,el=document.getElementById('bc');if(!el||!S||S.status!=='running')return;
-  const left=S.endsAt-nowS();el.textContent=nowS()<S.startsAt?'Chuẩn bị':mmss(left);el.className='big-clock'+(left<=60000?' low':'');
+  const left=S.endsAt-nowS();const ab=document.getElementById('abc');if(ab)ab.textContent=nowS()<S.startsAt?'Chuẩn bị':mmss(left);el.textContent=nowS()<S.startsAt?'Chuẩn bị':mmss(left);el.className='big-clock'+(left<=60000?' low':'');
 }
 async function act(path,body,ok){
   ERR='';MSG='';
@@ -108,7 +123,7 @@ document.addEventListener('click',async e=>{
   else if(a==='pick')document.getElementById('fx').click();
   else if(a==='sel'){SEL=+b.dataset.g;lastSig='';draw()}
   else if(a==='min'){MIN=+b.dataset.m;lastSig='';draw()}
-  else if(a==='create')await act('/api/h/admin/create',{g:SEL,minutes:MIN},'Đã tạo mã QR. Chiếu màn hình cho các bạn quét.');
+  else if(a==='create'){try{window.open('/hmo102/screen','hmo102screen')}catch(x){}await act('/api/h/admin/create',{g:SEL,minutes:MIN},'Đã tạo mã QR. Chiếu màn hình cho các bạn quét.');}
   else if(a==='start')await act('/api/h/admin/start',{},'Đã bắt đầu, phiếu chấm tự mở trên máy các bạn.');
   else if(a==='extend')await act('/api/h/admin/extend',{minutes:5},'Đã thêm 5 phút.');
   else if(a==='end'){if(confirm('Kết thúc chấm Nhóm '+ST.session.g+'?'))await act('/api/h/admin/end',{},'Đã kết thúc. Tải file Excel ở bên dưới.')}
@@ -122,7 +137,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('change',async e=>{
   if(e.target.id!=='fx'||!e.target.files[0])return;
-  try{const buf=await e.target.files[0].arrayBuffer();const r=await fetch('/api/h/admin/roster',{method:'POST',headers:H(),body:buf});const j=await r.json();if(!r.ok)throw new Error(j.error);MSG='Đã nạp '+j.added+' bạn, '+j.groups+' nhóm.';ERR=''}catch(x){ERR=x.message}
+  try{const buf=await e.target.files[0].arrayBuffer();const r=await fetch('/api/h/admin/roster',{method:'POST',headers:H(),body:buf});const j=await r.json();if(!r.ok)throw new Error(j.error);cacheRoster(buf);MSG='Đã nạp '+j.added+' bạn, '+j.groups+' nhóm.';ERR=''}catch(x){ERR=x.message}
   lastSig='';await refresh();
 });
 if(TOK)refresh();else login();
