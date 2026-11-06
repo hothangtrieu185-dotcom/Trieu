@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Quản trị chấm chéo · HMO102</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Itim&display=swap">
+<link rel="stylesheet" href="/hmo102/h.css">
+<style>.sheet{max-width:980px}.gh{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:8px}.who{font-size:13px;padding:5px 8px;border:1.5px solid var(--line);border-radius:8px}.who.y{border-color:var(--ink);background:var(--soft)}</style>
+</head><body>
+<main class="sheet">
+<header class="hero"><div><div class="eyebrow">Giảng viên</div><h1>Quản trị chấm chéo</h1><p>Phòng chờ, bắt đầu chấm và tổng hợp theo từng nhóm.</p></div></header>
+<div id="app"></div>
+</main>
+<script src="/hmo102/common.js"></script>
+<script>
+const LS='hmo102-h-admin';
+let TOK='';try{TOK=localStorage.getItem(LS)||''}catch(e){}
+let ST=null,SEL=null,MIN=10,ERR='',MSG='',lastSig='';
+const H=()=>({Authorization:'Bearer '+TOK});
+const app=document.getElementById('app');
+function login(){
+  app.innerHTML=`<div class="card"><h2>Đăng nhập</h2><label class="f" for="pw">Mật khẩu</label><input id="pw" type="password" style="width:100%;font:inherit;border:2px solid var(--ink);border-radius:12px;padding:10px 12px"><div class="err">${esc(ERR)}</div><div style="margin-top:14px"><button class="btn" data-act="login">Vào</button></div></div>`;
+}
+async function refresh(){
+  if(!TOK)return;
+  try{ST=await api('/api/h/admin/state',{headers:H()});syncNow(ST.now);draw()}
+  catch(e){if(e.status===401){TOK='';login()}else{ERR=e.message}}
+}
+function draw(){
+  if(!ST)return;
+  const R=ST.round;
+  if(SEL==null&&ST.groups.length)SEL=ST.groups[0].g;
+  const running=R&&R.open&&nowS()<=R.endsAt+4000;
+  const sig=JSON.stringify([ST.groups.map(g=>[g.list.map(x=>[x.joined,x.submitted]),g.rows.map(r=>[r.n,r.avg])]),R&&[R.g,R.startsAt,R.endsAt,R.open],SEL,MIN,MSG,ERR]);
+  if(sig===lastSig){tick();return}lastSig=sig;
+  let h='';
+  h+=`<div class="card"><h3>Danh sách lớp</h3><p class="small muted" style="margin:6px 0 0">${ST.total?`Đã nạp <b>${ST.total}</b> bạn, <b>${ST.groups.length}</b> nhóm.`:'Chưa có danh sách. Chọn file bảng điểm .xlsx của lớp (cột MSSV, Họ tên, Nhóm).'} Bạn không có nhóm sẽ tự bị loại.</p><div class="row" style="margin-top:10px"><input type="file" id="fx" accept=".xlsx" style="display:none"><button class="btn ghost sm" data-act="pick">${ST.total?'Nạp lại danh sách':'Chọn file danh sách'}</button></div></div>`;
+  if(!ST.groups.length){app.innerHTML=h+`<div class="err">${esc(ERR)}</div>`;return}
+  h+=`<div class="card"><h3>Phòng chờ</h3><p class="small muted" style="margin:6px 0 8px">Chiếu QR cho cả lớp quét. Khi đủ người, chọn nhóm và bấm bắt đầu.</p><div class="row"><a class="btn ghost sm" href="/hmo102/screen" target="_blank" rel="noopener">Mở màn hình chiếu</a><a class="btn ghost sm" href="/hmo102" target="_blank" rel="noopener">Mở trang sinh viên</a></div>`;
+  h+='<div class="tabs">'+ST.groups.map(g=>{const j=g.list.filter(x=>x.joined).length;return `<button class="chip" data-act="sel" data-g="${g.g}" aria-pressed="${g.g===SEL}">Nhóm ${g.g} · ${j}/${g.total}</button>`}).join('')+'</div>';
+  const sg=ST.groups.find(g=>g.g===SEL);
+  h+=`<div class="gh">${sg.list.map(x=>`<div class="who${x.joined?' y':''}">${x.joined?'✔ ':'· '}${esc(x.name)}${x.leader?' (trưởng nhóm)':''}${x.submitted?' · đã nộp':''}</div>`).join('')}</div></div>`;
+  h+='<div class="card"><h3>Bắt đầu chấm</h3>';
+  if(running){
+    const rg=ST.groups.find(g=>g.g===R.g);
+    h+=`<p class="small muted" style="margin:6px 0 0">Đang chấm <b>Nhóm ${R.g}</b> · đã nộp ${rg.list.filter(x=>x.submitted).length}/${rg.total}</p><div class="big-clock" id="bc"></div><div class="row" style="justify-content:center"><button class="btn ghost sm" data-act="extend">+5 phút</button><button class="btn brass sm" data-act="stop">Đóng chấm ngay</button></div>`;
+  }else{
+    h+=`<p class="small muted" style="margin:6px 0 8px">Thời gian chấm cho <b>Nhóm ${SEL}</b>${R&&!running?' (lượt trước đã đóng)':''}</p><div class="chips">${[5,10,15,20].map(m=>`<button class="chip" data-act="min" data-m="${m}" aria-pressed="${m===MIN}">${m} phút</button>`).join('')}</div><div style="margin-top:14px" class="row"><button class="btn brass" data-act="start">Bắt đầu chấm Nhóm ${SEL}</button>${R?'<button class="btn ghost sm" data-act="lobby">Về phòng chờ</button>':''}</div>`;
+  }
+  h+=`<div class="err">${esc(ERR)}</div>${MSG?`<div class="ok small">${esc(MSG)}</div>`:''}</div>`;
+  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3>Kết quả nhóm ${SEL}</h3><button class="btn ghost sm" data-act="xlsx">Tải file Excel (cả 3 nhóm)</button></div>`;
+  h+=`<p class="small muted" style="margin:6px 0 0">${sg.raters}/${sg.total} bạn đã nộp. Điểm trung bình cả nhóm: <b>${sg.gAvg||'-'}</b>. Hệ số = TB nhận được ÷ TB cả nhóm, giới hạn 0,80 đến 1,10.</p>`;
+  h+=`<div class="tscroll"><table><thead><tr><th>Thành viên</th><th>Số bạn chấm</th><th>Nội dung</th><th>Slide</th><th>Trách nhiệm</th><th>Hợp tác</th><th>TB</th><th>Hệ số</th><th>Tự chấm</th></tr></thead><tbody>${sg.rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.n}</td>${r.crit.map(x=>`<td>${x==null?'-':x}</td>`).join('')}<td><b>${r.avg==null?'-':r.avg}</b></td><td class="coef">${r.coef==null?'-':String(r.coef).replace('.',',')}</td><td>${r.self==null?'-':r.self}</td></tr>`).join('')}</tbody></table></div>`;
+  if(sg.missing.length)h+=`<p style="margin:12px 0 0"><span class="tag">Chưa nộp</span> ${sg.missing.map(esc).join(', ')}</p>`;
+  if(sg.flags.length)h+=`<div style="margin-top:8px">`+sg.flags.map(f=>`<div class="cm"><span class="tag w">Cảnh báo</span> <b>${esc(f.who)}</b> ${esc(f.text)}</div>`).join('')+'</div>';
+  const cms=sg.rows.filter(r=>r.comments.length);
+  if(cms.length){h+='<h3 style="margin-top:16px">Nhận xét</h3>';cms.forEach(r=>{h+=`<div style="margin-top:8px"><b>${esc(r.name)}</b>`+r.comments.map(c=>`<div class="cm">${c.low?'<span class="tag">Chấm thấp</span> ':''}<b>${esc(c.rater)}:</b> ${esc(c.text)}</div>`).join('')+'</div>'})}
+  h+='</div>';
+  h+=`<div class="card"><h3>Công cụ</h3><div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="clear">Xóa điểm Nhóm ${SEL} để chấm lại</button><button class="btn ghost sm" data-act="reset">Đăng xuất cả phòng chờ</button></div></div>`;
+  app.innerHTML=h;tick();
+}
+function tick(){
+  const R=ST&&ST.round,el=document.getElementById('bc');if(!el||!R)return;
+  const left=R.endsAt-nowS();el.textContent=mmss(left);el.className='big-clock'+(left<=60000?' low':'');
+  if(left<=-4000&&R.open)refresh();
+}
+async function act(path,body,ok){
+  ERR='';MSG='';
+  try{await api(path,{method:'POST',headers:H(),body:JSON.stringify(body||{})});MSG=ok||''}catch(e){ERR=e.message}
+  lastSig='';await refresh();
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='login'){
+    try{const j=await api('/api/h/admin/login',{method:'POST',body:JSON.stringify({password:document.getElementById('pw').value})});TOK=j.token;try{localStorage.setItem(LS,TOK)}catch(x){}ERR='';await refresh()}
+    catch(x){ERR=x.message;login()}
+  }
+  else if(a==='pick')document.getElementById('fx').click();
+  else if(a==='sel'){SEL=+b.dataset.g;lastSig='';draw()}
+  else if(a==='min'){MIN=+b.dataset.m;lastSig='';draw()}
+  else if(a==='start')await act('/api/h/admin/start',{g:SEL,minutes:MIN},'Đã bắt đầu, phiếu chấm tự mở trên máy các bạn.');
+  else if(a==='extend')await act('/api/h/admin/extend',{minutes:5},'Đã thêm 5 phút.');
+  else if(a==='stop')await act('/api/h/admin/stop',{},'Đã đóng chấm.');
+  else if(a==='lobby')await act('/api/h/admin/lobby',{},'Đã về phòng chờ.');
+  else if(a==='clear'){if(confirm('Xóa toàn bộ điểm của Nhóm '+SEL+'?'))await act('/api/h/admin/clear',{g:SEL,confirm:'XOA'},'Đã xóa điểm.')}
+  else if(a==='reset'){if(confirm('Đăng xuất tất cả các bạn khỏi phòng chờ? Điểm đã nộp vẫn giữ.'))await act('/api/h/admin/reset',{},'Đã làm mới phòng chờ.')}
+  else if(a==='xlsx'){
+    try{const r=await fetch('/api/h/admin/report.xlsx',{headers:H()});if(!r.ok)throw new Error('Không tải được file');const bl=await r.blob();const u=URL.createObjectURL(bl);const l=document.createElement('a');l.href=u;l.download='HMO102-cham-cheo.xlsx';l.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}catch(x){ERR=x.message;lastSig='';draw()}
+  }
+});
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='fx'||!e.target.files[0])return;
+  try{const buf=await e.target.files[0].arrayBuffer();const r=await fetch('/api/h/admin/roster',{method:'POST',headers:H(),body:buf});const j=await r.json();if(!r.ok)throw new Error(j.error);MSG='Đã nạp '+j.added+' bạn, '+j.groups+' nhóm.';ERR=''}catch(x){ERR=x.message}
+  lastSig='';await refresh();
+});
+if(TOK)refresh();else login();
+setInterval(refresh,2500);setInterval(tick,250);
+</script></body></html>

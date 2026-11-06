@@ -31,3 +31,12 @@ Lưu ý gói miễn phí: máy chủ ngủ sau ít phút không dùng, mở `/ad
 
 ## Chạy thử trên máy
 `npm install` rồi `ADMIN_PASSWORD=matkhau npm start`, mở http://localhost:3000/admin
+
+## Chấm chéo trong nhóm HMO102 (phòng chờ)
+Chạy chung máy chủ này, đường dẫn riêng:
+- `/hmo102` : sinh viên quét QR, nhập MSSV và họ tên, hệ thống tự nhận nhóm, vào phòng chờ
+- `/hmo102/admin` : giảng viên (mật khẩu trong biến môi trường `HMO102_PASSWORD`), nạp danh sách lớp, chọn nhóm, bắt đầu 5/10/15/20 phút, xem kết quả, tải Excel
+- `/hmo102/screen` : màn hình chiếu, QR và số người đã vào
+
+Quy trình: nạp file bảng điểm .xlsx của lớp ở trang admin (bạn không có nhóm tự bị loại), chiếu `/hmo102/screen`, các bạn quét QR vào phòng chờ, chọn nhóm rồi bấm Bắt đầu. Phiếu chấm tự mở trên máy các bạn của nhóm đó, hết giờ tự khóa. Hệ số điều chỉnh = TB nhận được chia TB cả nhóm, giới hạn 0,80 đến 1,10.
+Mã nguồn: `hmo102.js`, các trang trong `public/h/`.

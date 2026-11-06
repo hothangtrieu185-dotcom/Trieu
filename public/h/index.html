@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Đánh giá đồng đội · HMO102</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Itim&display=swap">
+<link rel="stylesheet" href="/hmo102/h.css">
+</head><body>
+<div id="timer" class="timer" hidden></div>
+<main class="sheet">
+<header class="hero"><div><div class="eyebrow">HMO102 · Final Project · FA26</div><h1>Đánh giá đồng đội</h1><p>Chấm đóng góp của từng thành viên trong nhóm. Điểm bạn chấm được ẩn danh với các bạn khác.</p></div><div id="mascot"></div></header>
+<div id="app"></div>
+</main>
+<div id="bar"></div>
+<script src="/hmo102/doodle.js"></script>
+<script src="/hmo102/common.js"></script>
+<script>
+document.getElementById('mascot').innerHTML=DOODLE('');
+const CRIT=[{k:'rep',t:'Nội dung báo cáo',d:'Mức đóng góp vào nội dung, số liệu và chất lượng báo cáo.'},{k:'pre',t:'Slide và thuyết trình',d:'Đóng góp vào slide và phần trình bày, trả lời câu hỏi.'},{k:'res',t:'Trách nhiệm và đúng hạn',d:'Hoàn thành phần việc được giao, đúng hạn, chủ động.'},{k:'col',t:'Hợp tác và giao tiếp',d:'Lắng nghe, phối hợp, hỗ trợ và giữ thái độ tích cực với nhóm.'}];
+const LV={1:'Rất yếu',2:'Yếu',3:'Đạt',4:'Tốt',5:'Xuất sắc'};
+const LS='hmo102-h-v1';
+const S={tok:'',me:null,v:null,draft:null,err:'',msg:'',busy:false,mode:'',sent:null,rk:0};
+const app=document.getElementById('app'),bar=document.getElementById('bar'),tm=document.getElementById('timer');
+function load(){try{const o=JSON.parse(localStorage.getItem(LS)||'null');if(o){S.tok=o.tok||'';S.draft=o.draft||null;S.sent=o.sent||null}}catch(e){}}
+function save(){try{localStorage.setItem(LS,JSON.stringify({tok:S.tok,draft:S.draft,sent:S.sent}))}catch(e){}}
+const blank=()=>({rep:0,pre:0,res:0,col:0,comment:''});
+const ready=(v,self)=>{const low=CRIT.some(c=>v[c.k]&&v[c.k]<3);return CRIT.every(c=>v[c.k])&&(self||!low||v.comment.trim().length>=10)};
+function initDraft(R){
+  const key=R.startsAt+':'+S.me.mssv;
+  if(S.draft&&S.draft.key===key)return;
+  const d={key,scores:{},self:blank()};R.members.forEach(m=>{if(m.mssv!==S.me.mssv)d.scores[m.mssv]=blank()});
+  const old=R.mine_rating;
+  if(old&&old.v)Object.entries(old.v).forEach(([id,a])=>{const t=id===S.me.mssv?d.self:d.scores[id];if(t){t.rep=a[0];t.pre=a[1];t.res=a[2];t.col=a[3];t.comment=a[4]||''}});
+  S.draft=d;if(old)S.sent=old.at;save();
+}
+function loginView(){
+  app.innerHTML=`<div class="card"><h2>Vào phòng chờ</h2><p class="muted small" style="margin:0">Nhập MSSV và họ tên có dấu như trong danh sách lớp. Hệ thống tự nhận ra nhóm của bạn.</p>
+  <label class="f" for="mssv">MSSV</label><input id="mssv" type="text" autocomplete="off" autocapitalize="characters" placeholder="Ví dụ DS210398">
+  <label class="f" for="nm">Họ và tên</label><input id="nm" type="text" autocomplete="off" placeholder="Ví dụ Nguyễn Văn A">
+  <div class="err" id="err">${esc(S.err)}</div><div style="margin-top:14px"><button class="btn" data-act="join" ${S.busy?'disabled':''}>Vào phòng chờ</button></div></div>`;
+  bar.innerHTML='';tm.hidden=true;
+}
+function lobbyView(v,kind){
+  const R=v.round;
+  let h=`<div class="card"><div class="eyebrow">Nhóm ${v.me.group}</div><h2 style="margin:2px 0 0">Xin chào ${esc(v.me.name)}</h2><p class="small muted" style="margin:8px 0 0">Bạn đã vào phòng chờ. Đừng thoát trang này.</p>
+  <div class="big-clock" style="font-size:54px">${v.joined}/${v.total}</div><div class="small muted" style="text-align:center">bạn trong nhóm đã vào phòng chờ</div></div>`;
+  if(kind==='other')h+=`<div class="notice">Hiện giảng viên đang mở chấm <b>Nhóm ${R.g}</b>. Nhóm của bạn chưa đến lượt, bạn cứ ở trang này.</div>`;
+  else if(kind==='done')h+=`<div class="notice">Lượt chấm của nhóm bạn đã đóng. Cảm ơn bạn.</div>`;
+  else h+='<div class="notice">Chờ giảng viên thông báo và bấm bắt đầu. Phiếu chấm sẽ tự mở trên máy bạn.</div>';
+  app.innerHTML=h;bar.innerHTML='';
+}
+function personCard(m,v,isSelf,open){
+  const low=CRIT.some(c=>v[c.k]&&v[c.k]<3),ok=ready(v,isSelf),w=isSelf?'self':m.mssv;
+  let h=`<div class="card" data-card="${esc(w)}"><div class="person"><div class="avatar">${esc(m.name.trim().split(/\s+/).pop().charAt(0).toUpperCase())}</div><div><h3>${isSelf?'Tự đánh giá bản thân':esc(m.name)}</h3><div class="small muted">${isSelf?'Không bắt buộc, không tính vào hệ số điều chỉnh':'Đánh giá đóng góp của bạn này'}</div></div><span class="done${ok?' y':''}">${ok?'Xong':'Chưa xong'}</span></div>`;
+  CRIT.forEach(c=>{
+    h+=`<div class="crit"><div class="t">${c.t}</div><div class="d">${c.d}</div><div class="scale">`;
+    for(let i=1;i<=5;i++)h+=`<button data-act="star" data-who="${esc(w)}" data-k="${c.k}" data-v="${i}" aria-pressed="${v[c.k]===i}" ${open?'':'disabled'}>${i}</button>`;
+    h+=`</div><div class="lv">${LV[v[c.k]]||'Chưa chấm'}</div></div>`;
+  });
+  const need=low&&!isSelf;
+  h+=`<label class="f" for="c-${esc(w)}">Nhận xét ${need?'<span style="color:var(--bad)">(bắt buộc, ít nhất 10 ký tự)</span>':'(không bắt buộc)'}</label><textarea id="c-${esc(w)}" data-act="cmt" data-who="${esc(w)}" ${open?'':'disabled'} placeholder="${need?'Nêu việc cụ thể khiến bạn chấm thấp':'Ví dụ: bạn hoàn thành phần việc đúng hạn'}">${esc(v.comment)}</textarea></div>`;
+  return h;
+}
+function gradeView(v){
+  const R=v.round,open=R.open&&nowS()>=R.startsAt-300;initDraft(R);
+  const peers=R.members.filter(m=>m.mssv!==S.me.mssv),me=R.members.find(m=>m.mssv===S.me.mssv);
+  let h=`<div class="card"><div class="eyebrow">Nhóm ${v.me.group}</div><h2 style="margin:2px 0 0">Xin chào ${esc(v.me.name)}</h2><p class="small muted" style="margin:10px 0 0">Chấm từ 1 đến 5 cho 4 tiêu chí. Dưới 3 ở bất kỳ tiêu chí nào thì cần ghi lý do. Bạn nộp lại được đến khi hết giờ, bài nộp sau cùng là bài được tính.</p></div>`;
+  if(S.sent)h+=`<div class="notice">Bạn đã nộp. ${open?'Muốn sửa thì chỉnh bên dưới rồi bấm Nộp lại.':''}</div>`;
+  if(!R.open||nowS()>R.endsAt)h+='<div class="notice bad">Đã hết giờ chấm.</div>';
+  peers.forEach(m=>h+=personCard(m,S.draft.scores[m.mssv],false,open));
+  h+=personCard(me,S.draft.self,true,open);
+  app.innerHTML=h;drawBar(peers,open);
+}
+function missing(peers){let n=0;peers.forEach(m=>{if(!ready(S.draft.scores[m.mssv],false))n++});return n}
+function drawBar(peers,open){
+  const R=S.v.round,miss=missing(peers),total=peers.length,done=total-miss;
+  bar.innerHTML=`<div class="bar"><div class="in"><div class="prog"><div class="small"><b>${done}/${total}</b> bạn đã chấm xong${S.msg?` · <span class="ok">${esc(S.msg)}</span>`:''}${S.err?` · <span style="color:#ffb3c2">${esc(S.err)}</span>`:''}</div><div class="track"><div class="fill" style="width:${total?done/total*100:0}%"></div></div></div><button class="btn brass" data-act="submit" ${(!open||miss||S.busy)?'disabled':''}>${S.sent?'Nộp lại':'Nộp bài chấm'}</button></div></div>`;
+}
+function modeOf(v){
+  const R=v.round;
+  if(!R)return 'lobby';
+  if(!R.mine)return R.open?'other':'lobby';
+  if(nowS()<R.startsAt-300)return 'count';
+  return 'grade';
+}
+function paint(){
+  const v=S.v;if(!v)return;
+  const m=modeOf(v),sig=m+(v.round?':'+v.round.startsAt+':'+v.round.open:'');
+  if(sig===S.sig)return;S.sig=sig;
+  if(m==='lobby')lobbyView(v,v.round&&v.round.mine?'done':'');
+  else if(m==='other')lobbyView(v,'other');
+  else if(m==='count'){app.innerHTML='<div class="card"><div class="eyebrow">Sắp bắt đầu</div><div class="big-clock" id="cd">3</div><div class="small muted" style="text-align:center">Chuẩn bị, phiếu chấm sắp mở</div></div>';bar.innerHTML=''}
+  else gradeView(v);
+}
+function tick(){
+  const v=S.v;if(!v||!v.round||!v.round.mine){tm.hidden=true;return}
+  const R=v.round,n=nowS();
+  if(n<R.startsAt){tm.hidden=true;const c=document.getElementById('cd');if(c)c.textContent=Math.max(1,Math.ceil((R.startsAt-n)/1000));if(n>=R.startsAt-300){S.sig='';paint()}return}
+  const left=R.endsAt-n;tm.hidden=false;
+  tm.className='timer'+(left<=0||!R.open?' over':left<=60000?' low':'');
+  tm.innerHTML=(left>0&&R.open)?`Còn lại <b>${mmss(left)}</b> để chấm`:'Đã hết giờ chấm';
+  if((left<=0||!R.open)&&!S.closedPainted){S.closedPainted=true;S.sig='';paint()}
+  if(left>0&&R.open)S.closedPainted=false;
+}
+async function poll(){
+  if(!S.tok)return;
+  try{const v=await api('/api/h/state',{headers:{'X-Token':S.tok}});syncNow(v.now);
+    if(S.v&&S.v.round&&v.round&&v.round.startsAt!==S.v.round.startsAt){S.sig='';S.closedPainted=false}
+    S.v=v;S.me=v.me;paint();tick();
+  }catch(e){if(e.status===401){S.tok='';S.me=null;S.v=null;S.sig='';save();loginView()}}
+}
+function refreshCard(who){
+  const el=document.querySelector(`[data-card="${CSS.escape(who)}"]`);if(!el)return;
+  const R=S.v.round,m=who==='self'?R.members.find(x=>x.mssv===S.me.mssv):R.members.find(x=>x.mssv===who),vv=who==='self'?S.draft.self:S.draft.scores[who];
+  const t=document.createElement('div');t.innerHTML=personCard(m,vv,who==='self',R.open&&nowS()<=R.endsAt+3000);el.replaceWith(t.firstElementChild);
+}
+function redraw(){const R=S.v.round;drawBar(R.members.filter(m=>m.mssv!==S.me.mssv),R.open&&nowS()<=R.endsAt+3000)}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='join'){
+    const mssv=document.getElementById('mssv').value.trim(),name=document.getElementById('nm').value.trim();
+    if(!mssv||!name){S.err='Nhập đủ MSSV và họ tên.';return loginView()}
+    S.busy=true;S.err='';
+    try{const v=await api('/api/h/join',{method:'POST',body:JSON.stringify({mssv,name})});S.tok=v.token;S.v=v;S.me=v.me;S.sig='';S.busy=false;save();syncNow(v.now);paint();tick()}
+    catch(x){S.busy=false;S.err=x.message;loginView();document.getElementById('mssv').value=mssv;document.getElementById('nm').value=name}
+  }
+  else if(a==='star'){const w=b.dataset.who,t=w==='self'?S.draft.self:S.draft.scores[w];t[b.dataset.k]=+b.dataset.v;S.msg='';S.err='';save();refreshCard(w);redraw()}
+  else if(a==='submit')await submit();
+});
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t.dataset||t.dataset.act!=='cmt')return;
+  const w=t.dataset.who,vv=w==='self'?S.draft.self:S.draft.scores[w];vv.comment=t.value;S.msg='';save();
+  const pill=t.closest('.card').querySelector('.done'),ok=ready(vv,w==='self');pill.className='done'+(ok?' y':'');pill.textContent=ok?'Xong':'Chưa xong';redraw();
+});
+async function submit(){
+  const R=S.v.round;S.busy=true;S.err='';redraw();
+  const r={};Object.entries(S.draft.scores).forEach(([id,x])=>{r[id]=[x.rep,x.pre,x.res,x.col,x.comment.trim()]});
+  const s=S.draft.self,body={r};if(ready(s,true))body.self=[s.rep,s.pre,s.res,s.col,s.comment.trim()];
+  try{const j=await api('/api/h/rate',{method:'POST',headers:{'X-Token':S.tok},body:JSON.stringify(body)});S.sent=j.at;S.msg='Đã gửi cho giảng viên'}
+  catch(x){S.err=x.message}
+  S.busy=false;save();redraw();
+}
+load();
+if(S.tok){poll()}else loginView();
+setInterval(poll,2000);setInterval(tick,250);
+</script></body></html>

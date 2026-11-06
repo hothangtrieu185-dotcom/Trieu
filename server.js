@@ -370,6 +370,7 @@ async function apiAdmin(req, res, url) {
   fail(res, 404, 'Không tìm thấy.');
 }
 
+const hmo = require('./hmo102')({ ExcelJS, QRCode, parseRoster, DATA_DIR });   // chấm chéo HMO102
 // ---------- Máy chủ ----------
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
 const PAGES = { '/': 'student.html', '/admin': 'admin.html', '/screen': 'screen.html' };
@@ -377,6 +378,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
     const p = url.pathname;
+    if (await hmo(req, res, url)) return;
     if (p === '/api/join' && req.method === 'POST') return await apiJoin(req, res);
     if (p === '/api/state') { const st = studentFromReq(req); return st ? send(res, 200, studentView(st)) : fail(res, 401, 'Phiên không hợp lệ.'); }
     if (p === '/api/rate' && req.method === 'POST') return await apiRate(req, res);
