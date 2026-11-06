@@ -17,7 +17,7 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
   const PASSWORD = process.env.HMO102_PASSWORD || '';
   const TOKEN = PASSWORD ? crypto.createHmac('sha256', PASSWORD).update('hmo102-admin').digest('hex') : null;
   const FILE = path.join(DATA_DIR, 'hmo102-state.json');
-  const fresh = () => ({ roster: [], joined: {}, session: null, ratings: {}, updatedAt: Date.now() });
+  const fresh = () => ({ roster: [], joined: {}, session: null, ratings: {}, music: { wait: true, grade: true }, updatedAt: Date.now() });
   let H = fresh();
   try { H = Object.assign(fresh(), JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch (e) { /* trạng thái mới */ }
   let timer = null;
@@ -108,7 +108,7 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
   }
   function screenView() {
     const S = H.session;
-    const v = { now: Date.now(), roster: H.roster.length, logged: Object.keys(H.joined).filter((m) => byMssv(m)).length, session: null };
+    const v = { now: Date.now(), roster: H.roster.length, logged: Object.keys(H.joined).filter((m) => byMssv(m)).length, music: H.music || { wait: true, grade: true }, session: null };
     if (S) {
       v.session = { g: S.g, status: S.status, startsAt: S.startsAt, endsAt: S.endsAt, open: runOpen(), inRoom: inRoomCount(), total: members(S.g).length, submitted: submittedCount(S.g),
         bubbles: Object.entries(S.room).sort((a, b) => a[1] - b[1]).map(([m]) => (byMssv(m).name.trim().split(/\s+/).pop() || '?').charAt(0).toUpperCase()) };
@@ -117,7 +117,7 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
   }
   function adminView() {
     const S = H.session;
-    return { now: Date.now(), configured: !!TOKEN, total: H.roster.length,
+    return { now: Date.now(), configured: !!TOKEN, total: H.roster.length, music: H.music || { wait: true, grade: true },
       session: S && Object.assign({}, S, { open: runOpen(), inRoom: inRoomCount(), submitted: submittedCount(S.g) }),
       hasResults: Object.keys(H.ratings).some((g) => submittedCount(g) > 0),
       groups: groupIds().map((g) => Object.assign(calc(g), { list: members(g).map((m) => ({ mssv: m.mssv, name: m.name, leader: !!m.leader, logged: !!H.joined[m.mssv], inRoom: !!(S && S.g === g && S.room[m.mssv]), submitted: !!(H.ratings[g] || {})[m.mssv] })) })) };
@@ -271,6 +271,7 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
       const g = Number(b.g); if (b.confirm !== 'XOA') { fail(res, 400, 'Cần xác nhận.'); return true; }
       delete H.ratings[g]; save(); send(res, 200, { ok: true }); return true;
     }
+    if (p === '/api/h/admin/music') { H.music = Object.assign({ wait: true, grade: true }, H.music, { [b.stage === 'grade' ? 'grade' : 'wait']: !!b.on }); save(); send(res, 200, { ok: true, music: H.music }); return true; }
     if (p === '/api/h/admin/reset') { H.joined = {}; H.session = null; save(); send(res, 200, { ok: true }); return true; }
     fail(res, 404, 'Không tìm thấy.'); return true;
   };

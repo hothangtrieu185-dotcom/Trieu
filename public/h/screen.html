@@ -85,7 +85,7 @@ function buildEnd(S){
   setTimeout(function(){var m=document.querySelector('.center>div');burst(m,50,true)},300)
 }
 function apply(v){
-  OFF=v.now-Date.now();window._S=v.session;muSync(v.session);var S=v.session,m=!S?'login':S.status+':'+S.g+':'+S.startsAt;
+  OFF=v.now-Date.now();window._S=v.session;muSync(v.session,v.music);var S=v.session,m=!S?'login':S.status+':'+S.g+':'+S.startsAt;
   if(m!==mode){mode=m;if(!S)buildLogin();else if(S.status==='open')buildRoom(S);else if(S.status==='running')buildRun(S);else buildEnd(S)}
   if(!S)updLogin(v);else if(S.status==='open')updRoom(S);else if(S.status==='running'){updRun(S);if(S.startsAt>now())countdown(S)}
 }
@@ -94,7 +94,7 @@ function tick(){fetch('/api/h/screen').then(function(r){return r.json()}).then(a
 /* ===== nhạc nền khi sinh viên đang chấm (WebAudio) ===== */
 var MU={ctx:null,master:null,on:false,timer:null,step:0,want:false,muted:false,btn:null};
 try{MU.muted=localStorage.getItem('hmo102-music')==='off'}catch(e){}
-var CH=[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],BASS=[45,41,36,43];
+var TUNES={grade:{bpm:78,ch:[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],bass:[45,41,36,43]},wait:{bpm:96,ch:[[60,64,67],[55,59,62],[57,60,64],[53,57,60]],bass:[48,43,45,41]}};MU.stage='';MU.mus={wait:true,grade:true};
 function mf(n){return 440*Math.pow(2,(n-69)/12)}
 function muInit(){
   if(MU.ctx)return true;
@@ -113,8 +113,8 @@ function note(f,t,d,type,v){
 }
 function beat(){
   if(!MU.on||!MU.ctx)return;
-  var c=MU.ctx,b=60/78,t=c.currentTime+.05,bar=Math.floor(MU.step/8)%4,i=MU.step%8,ch=CH[bar];
-  if(i===0){ch.forEach(function(n){note(mf(n),t,b*4,'triangle',.07)});note(mf(BASS[bar]),t,b*3.5,'sine',.16)}
+  var T=TUNES[MU.stage]||TUNES.grade,c=MU.ctx,b=60/T.bpm,t=c.currentTime+.05,bar=Math.floor(MU.step/8)%4,i=MU.step%8,ch=T.ch[bar];
+  if(i===0){ch.forEach(function(n){note(mf(n),t,b*4,'triangle',.07)});note(mf(T.bass[bar]),t,b*3.5,'sine',.16)}
   note(mf(ch[i%3]+12+(i>=5?12:0)),t,b*1.2,'triangle',.09);
   MU.step++;MU.timer=setTimeout(beat,b/2*1000);
 }
@@ -137,9 +137,14 @@ function muBtn(){
   var blocked=!MU.muted&&MU.want&&(!MU.ctx||MU.ctx.state!=='running');
   MU.btn.textContent=MU.muted?'🔇 Nhạc: tắt':blocked?'🎵 Bấm để bật nhạc':'🎵 Nhạc: bật';
 }
-function muSync(S){
-  var run=!!S&&S.status==='running'&&now()<S.endsAt&&now()>=S.startsAt;
-  MU.want=run;if(run)muPlay();else muStop();muBtn();
+function muSync(S,mus){
+  var st=!S||S.status==='open'?'wait':(S.status==='running'&&now()<S.endsAt&&now()>=S.startsAt?'grade':(S.status==='running'?MU.stage:''));
+  if(mus)MU.mus=mus;
+  var allowed=st&&MU.mus[st]!==false;
+  MU.want=!!allowed;
+  if(!allowed)muStop();
+  else{if(MU.on&&MU.stage!==st)muStop();if(!MU.on){MU.stage=st;MU.step=0;muPlay()}}
+  muBtn();
 }
 document.addEventListener('click',function(){if(MU.ctx&&MU.ctx.state==='suspended'&&!MU.muted){MU.ctx.resume().then(function(){if(MU.want)muPlay();muBtn()})}else if(!MU.ctx&&!MU.muted){muInit();if(MU.want)muPlay();muBtn()}},true);
 

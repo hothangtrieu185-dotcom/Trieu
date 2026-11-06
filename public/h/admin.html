@@ -54,7 +54,7 @@ function draw(){
   const S=ST.session;
   if(SEL==null&&ST.groups.length)SEL=ST.groups[0].g;
   if(S)SEL=S.g;
-  const sig=JSON.stringify([ST.groups.map(g=>[g.list.map(x=>[x.logged,x.inRoom,x.submitted]),g.rows.map(r=>[r.n,r.avg])]),S&&[S.id,S.status,S.endsAt,S.inRoom],ST.hasResults,SEL,MIN,MSG,ERR,ST.total,CONF]);
+  const sig=JSON.stringify([ST.groups.map(g=>[g.list.map(x=>[x.logged,x.inRoom,x.submitted]),g.rows.map(r=>[r.n,r.avg])]),S&&[S.id,S.status,S.endsAt,S.inRoom],ST.hasResults,SEL,MIN,MSG,ERR,ST.total,CONF,ST.music]);
   if(sig===lastSig){tick();return}lastSig=sig;
   let h='';
   const hasRoster=ST.total>0;
@@ -99,6 +99,7 @@ function draw(){
     h+=`<div class="card"><h3>Kết quả tạm thời Nhóm ${S.g}</h3>`+resultBlock(sg)+'</div>';
   }
   if(!S&&ST.hasResults)h+=`<div class="card"><h3>Kết quả đã có</h3><div class="row" style="margin-top:10px"><button class="btn brass sm" data-act="xlsx">Tải file Excel kết quả</button></div></div>`;
+  {const M=ST.music||{wait:true,grade:true};h+=`<div class="card"><h3>🎵 Nhạc màn hình chiếu</h3><p class="small muted" style="margin:4px 0 0">Bật/tắt nhạc nền theo từng giai đoạn (cần bấm vào tab màn chiếu 1 lần để trình duyệt cho phát).</p><div class="row" style="margin-top:8px"><button class="btn ${M.wait?'brass':'ghost'} sm" data-act="music" data-stage="wait">${M.wait?'🔊':'🔇'} Lúc chờ & vào phòng: ${M.wait?'BẬT':'TẮT'}</button><button class="btn ${M.grade?'brass':'ghost'} sm" data-act="music" data-stage="grade">${M.grade?'🔊':'🔇'} Lúc đang chấm: ${M.grade?'BẬT':'TẮT'}</button></div></div>`}
   h+=`<div class="card"><h3>Công cụ</h3><div class="row" style="margin-top:8px"><button class="btn ${CONF==='clear'?'brass':'ghost'} sm" data-act="clear">${CONF==='clear'?'Bấm lần nữa để XÓA điểm Nhóm '+SEL:'Xóa điểm Nhóm '+SEL+' để chấm lại'}</button><button class="btn ${CONF==='reset'?'brass':'ghost'} sm" data-act="reset">${CONF==='reset'?'Bấm lần nữa để đăng xuất tất cả':'Đăng xuất tất cả sinh viên'}</button></div></div>`;
   if(S&&S.status==='open')h+=`<div class="abar"><div class="in"><div><div class="small" style="opacity:.8">Phòng chờ Nhóm ${S.g}</div><b style="font-size:18px">${S.inRoom}/${sg.total} bạn đã vào phòng</b></div><button class="btn brass" data-act="start">▶ Bắt đầu chấm (${S.minutes} phút)</button></div></div>`;
   else if(S&&S.status==='running')h+=`<div class="abar"><div class="in"><div><div class="small" style="opacity:.8">Đang chấm Nhóm ${S.g} · đã nộp ${S.submitted}/${sg.total}</div><b class="clk" id="abc"></b></div><div class="row"><button class="btn ghost sm" data-act="extend">+5 phút</button><button class="btn brass" data-act="end">■ Kết thúc chấm</button></div></div></div>`;
@@ -130,6 +131,7 @@ document.addEventListener('click',async e=>{
   else if(a==='end'){if(confirm('Kết thúc chấm Nhóm '+ST.session.g+'?'))await act('/api/h/admin/end',{},'Đã kết thúc. Tải file Excel ở bên dưới.')}
   else if(a==='cancel'){if(confirm('Hủy phòng chờ này?'))await act('/api/h/admin/cancel',{},'Đã hủy phòng chờ.')}
   else if(a==='next')await act('/api/h/admin/next',{},'');
+  else if(a==='music'){const st=b.dataset.stage,M=ST.music||{wait:true,grade:true};await act('/api/h/admin/music',{stage:st,on:!M[st]},'')}
   else if(a==='clear'||a==='reset'){
     if(CONF!==a){CONF=a;clearTimeout(confT);confT=setTimeout(()=>{CONF='';lastSig='';draw()},5000);lastSig='';draw();return}
     CONF='';clearTimeout(confT);
