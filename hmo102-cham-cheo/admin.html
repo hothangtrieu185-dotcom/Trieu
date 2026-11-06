@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tổng hợp chấm chéo</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head><body>
+<header class="band"><div class="in">
+  <div class="eyebrow">Dành cho giảng viên</div>
+  <h1>Tổng hợp chấm chéo</h1>
+  <p>Dán cột “Mã kết quả” từ Google Sheet, hoặc tải file CSV về, trang này tự tính hệ số điều chỉnh.</p>
+</div></header>
+<div class="wrap" id="app"></div>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+const LS='hmo102-peer-admin-v1';
+const S={raw:'',gid:'',ratings:[],bad:0};
+try{S.raw=localStorage.getItem(LS)||''}catch(e){}
+function parse(){
+  const codes=[...new Set((S.raw.match(/HMO1\.[A-Za-z0-9_-]+/g)||[]))];
+  const best={};let bad=0;
+  codes.forEach(c=>{const r=decodeResult(c);if(!r||!grp(r.gid)){bad++;return}const k=r.gid+'|'+r.raterId;if(!best[k]||r.submittedAt>best[k].submittedAt)best[k]=r});
+  S.ratings=Object.values(best);S.bad=bad;S.total=codes.length;
+}
+const grp=id=>CFG.groups.find(g=>g.id===id);
+function render(){
+  parse();
+  if(!grp(S.gid))S.gid=CFG.groups[0].id;
+  const g=grp(S.gid),c=calc(g,S.ratings);
+  let h='<div class="card"><h2>Dữ liệu</h2><p class="small muted" style="margin:0">Trong Google Form, mở tab Câu trả lời, bấm biểu tượng Sheet, sao chép cả cột “Mã kết quả” rồi dán vào ô dưới. Có thể dán lẫn cả cột thời gian, trang chỉ lấy các mã bắt đầu bằng HMO1. Bài nộp sau cùng của mỗi bạn được tính.</p>';
+  h+=`<label class="f" for="raw">Dán mã kết quả</label><textarea class="big" id="raw" placeholder="HMO1.eyJ2IjoxLC...">${esc(S.raw)}</textarea>`;
+  h+='<div class="row" style="margin-top:10px"><label class="btn ghost sm" style="display:inline-flex;align-items:center;cursor:pointer">Tải file CSV<input type="file" id="file" accept=".csv,.txt,text/csv,text/plain" hidden></label><button class="btn ghost sm" data-act="clear">Xóa dữ liệu</button></div>';
+  h+=`<div class="small muted" style="margin-top:10px">Đọc được <b>${S.ratings.length}</b> bài chấm hợp lệ trên ${S.total||0} mã${S.bad?`, <span style="color:var(--bad)">${S.bad} mã lỗi hoặc không thuộc nhóm nào</span>`:''}.</div></div>`;
+  h+='<div class="card"><label class="f" style="margin-top:0" for="admG">Nhóm</label><select id="admG">'+CFG.groups.map(x=>`<option value="${esc(x.id)}"${x.id===S.gid?' selected':''}>${esc(x.name)}</option>`).join('')+'</select>';
+  h+=`<div class="small muted" style="margin-top:10px">Đã nộp ${c.rs.length}/${g.members.length} bài chấm · Hạn ${esc(fmtT(g.deadline))}</div>`;
+  if(c.missing.length)h+=`<div class="notice">Chưa nộp: <b>${c.missing.map(m=>esc(m.name)).join(', ')}</b></div>`;
+  h+='</div>';
+  h+='<div class="card"><h2>Bảng tổng hợp</h2><div class="small muted">Điểm trung bình các bạn khác chấm (1 đến 5, không tính tự đánh giá).</div><div class="tscroll"><table><thead><tr><th>Thành viên</th><th>Số bạn chấm</th>'+CRIT.map(x=>`<th>${x.t.split(' ').slice(-2).join(' ')}</th>`).join('')+'<th>TB chung</th><th>Hệ số</th><th>Tự chấm</th></tr></thead><tbody>';
+  c.rows.forEach(r=>{h+=`<tr><td><b>${esc(r.m.name)}</b></td><td>${r.n}</td>${r.per.map(v=>`<td>${n2(v)}</td>`).join('')}<td><b>${n2(r.all)}</b></td><td class="coef">${r.coef==null?'n/a':r.coef.toFixed(2)}${r.raw!=null&&r.raw!==r.coef?'*':''}</td><td>${n2(r.self)}${r.self!=null&&r.all!=null&&Math.abs(r.self-r.all)>=1?' <span class="tag w">lệch</span>':''}</td></tr>`});
+  h+=`</tbody></table></div><p class="small muted" style="margin-bottom:0">Hệ số = TB của bạn ÷ TB cả nhóm (${n2(c.gavg)}), giới hạn từ 0,80 đến 1,10. Dấu * là hệ số đã bị chặn ở giới hạn. Điểm cá nhân = điểm nhóm × hệ số.</p></div>`;
+  h+='<div class="card"><h2>Cảnh báo</h2>';
+  h+=c.flags.length?c.flags.map(f=>`<div class="cm"><span class="tag w">${esc(f.who)}</span>${esc(f.t)}</div>`).join(''):'<div class="small muted">Chưa thấy bất thường.</div>';
+  h+='</div><div class="card"><h2>Nhận xét</h2>';
+  let any=false;
+  c.rs.forEach(r=>{
+    g.members.forEach(m=>{const s=r.scores[m.id];if(s&&s.comment.trim()&&r.raterId!==m.id){any=true;h+=`<div class="cm"><b>${esc(r.raterName)}</b> chấm <b>${esc(m.name)}</b> (${n2(mean(CRIT.map(x=>s[x.k])))} sao): ${esc(s.comment)}</div>`}});
+    if(r.self&&r.self.comment.trim()){any=true;h+=`<div class="cm"><b>${esc(r.raterName)}</b> tự đánh giá: ${esc(r.self.comment)}</div>`}
+  });
+  if(!any)h+='<div class="small muted">Chưa có nhận xét nào.</div>';
+  h+='</div><div style="margin-top:14px"><button class="btn brass" data-act="export">Tải file Excel (mọi nhóm)</button></div>';
+  app.innerHTML=h;
+}
+const app=document.getElementById('app');
+function setRaw(v){S.raw=v;try{localStorage.setItem(LS,v)}catch(e){}}
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='raw'){setRaw(t.value);render()}
+  else if(t.id==='admG'){S.gid=t.value;render()}
+  else if(t.id==='file'&&t.files[0]){t.files[0].text().then(x=>{setRaw(S.raw+'\n'+x);render()})}
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  if(b.dataset.act==='clear'){setRaw('');render()}
+  else if(b.dataset.act==='export'){
+    const sum=[['Nhóm','Thành viên','Số bạn chấm',...CRIT.map(c=>c.t),'TB chung','Hệ số điều chỉnh','Tự đánh giá']];
+    const det=[['Nhóm','Người chấm','Người được chấm',...CRIT.map(c=>c.t),'TB','Nhận xét','Thời gian nộp']];
+    CFG.groups.forEach(g=>{
+      const c=calc(g,S.ratings);
+      c.rows.forEach(r=>sum.push([g.name,r.m.name,r.n,...r.per.map(v=>v==null?'':+v.toFixed(2)),r.all==null?'':+r.all.toFixed(2),r.coef==null?'':+r.coef.toFixed(2),r.self==null?'':+r.self.toFixed(2)]));
+      c.rs.forEach(r=>g.members.forEach(m=>{const s=r.scores[m.id];if(s&&r.raterId!==m.id)det.push([g.name,r.raterName,m.name,...CRIT.map(x=>s[x.k]),+mean(CRIT.map(x=>s[x.k])).toFixed(2),s.comment,fmtT(r.submittedAt)])}));
+    });
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Tong hop');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(det),'Chi tiet');
+    XLSX.writeFile(wb,'HMO102-cham-cheo-nhom.xlsx');
+  }
+});
+render();
+</script></body></html>
