@@ -25,6 +25,7 @@ let TOK='';try{TOK=localStorage.getItem(LS)||''}catch(e){}
 let restoring=false;const RK='hmo102-h-roster';
 function cachedRoster(){try{const b=localStorage.getItem(RK);if(!b)return null;const bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}catch(e){return null}}
 function cacheRoster(buf){try{const u=new Uint8Array(buf);let bin='';for(let i=0;i<u.length;i+=8192)bin+=String.fromCharCode.apply(null,u.subarray(i,i+8192));localStorage.setItem(RK,btoa(bin))}catch(e){}}
+let CONF='',confT=null;
 let ST=null,SEL=null,MIN=10,ERR='',MSG='',lastSig='';
 const H=()=>({Authorization:'Bearer '+TOK});
 const app=document.getElementById('app');
@@ -53,7 +54,7 @@ function draw(){
   const S=ST.session;
   if(SEL==null&&ST.groups.length)SEL=ST.groups[0].g;
   if(S)SEL=S.g;
-  const sig=JSON.stringify([ST.groups.map(g=>[g.list.map(x=>[x.logged,x.inRoom,x.submitted]),g.rows.map(r=>[r.n,r.avg])]),S&&[S.id,S.status,S.endsAt,S.inRoom],ST.hasResults,SEL,MIN,MSG,ERR,ST.total]);
+  const sig=JSON.stringify([ST.groups.map(g=>[g.list.map(x=>[x.logged,x.inRoom,x.submitted]),g.rows.map(r=>[r.n,r.avg])]),S&&[S.id,S.status,S.endsAt,S.inRoom],ST.hasResults,SEL,MIN,MSG,ERR,ST.total,CONF]);
   if(sig===lastSig){tick();return}lastSig=sig;
   let h='';
   const hasRoster=ST.total>0;
@@ -98,7 +99,7 @@ function draw(){
     h+=`<div class="card"><h3>Kết quả tạm thời Nhóm ${S.g}</h3>`+resultBlock(sg)+'</div>';
   }
   if(!S&&ST.hasResults)h+=`<div class="card"><h3>Kết quả đã có</h3><div class="row" style="margin-top:10px"><button class="btn brass sm" data-act="xlsx">Tải file Excel kết quả</button></div></div>`;
-  h+=`<div class="card"><h3>Công cụ</h3><div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="clear">Xóa điểm Nhóm ${SEL} để chấm lại</button><button class="btn ghost sm" data-act="reset">Đăng xuất tất cả sinh viên</button></div></div>`;
+  h+=`<div class="card"><h3>Công cụ</h3><div class="row" style="margin-top:8px"><button class="btn ${CONF==='clear'?'brass':'ghost'} sm" data-act="clear">${CONF==='clear'?'Bấm lần nữa để XÓA điểm Nhóm '+SEL:'Xóa điểm Nhóm '+SEL+' để chấm lại'}</button><button class="btn ${CONF==='reset'?'brass':'ghost'} sm" data-act="reset">${CONF==='reset'?'Bấm lần nữa để đăng xuất tất cả':'Đăng xuất tất cả sinh viên'}</button></div></div>`;
   if(S&&S.status==='open')h+=`<div class="abar"><div class="in"><div><div class="small" style="opacity:.8">Phòng chờ Nhóm ${S.g}</div><b style="font-size:18px">${S.inRoom}/${sg.total} bạn đã vào phòng</b></div><button class="btn brass" data-act="start">▶ Bắt đầu chấm (${S.minutes} phút)</button></div></div>`;
   else if(S&&S.status==='running')h+=`<div class="abar"><div class="in"><div><div class="small" style="opacity:.8">Đang chấm Nhóm ${S.g} · đã nộp ${S.submitted}/${sg.total}</div><b class="clk" id="abc"></b></div><div class="row"><button class="btn ghost sm" data-act="extend">+5 phút</button><button class="btn brass" data-act="end">■ Kết thúc chấm</button></div></div></div>`;
   else if(S&&S.status==='ended')h+=`<div class="abar"><div class="in"><b style="font-size:18px">Nhóm ${S.g} đã chấm xong</b><div class="row"><button class="btn brass" data-act="xlsx">⬇ Tải file Excel kết quả</button><button class="btn ghost sm" data-act="next">Chấm nhóm khác</button></div></div></div>`;
@@ -129,8 +130,11 @@ document.addEventListener('click',async e=>{
   else if(a==='end'){if(confirm('Kết thúc chấm Nhóm '+ST.session.g+'?'))await act('/api/h/admin/end',{},'Đã kết thúc. Tải file Excel ở bên dưới.')}
   else if(a==='cancel'){if(confirm('Hủy phòng chờ này?'))await act('/api/h/admin/cancel',{},'Đã hủy phòng chờ.')}
   else if(a==='next')await act('/api/h/admin/next',{},'');
-  else if(a==='clear'){if(confirm('Xóa toàn bộ điểm của Nhóm '+SEL+'?'))await act('/api/h/admin/clear',{g:SEL,confirm:'XOA'},'Đã xóa điểm.')}
-  else if(a==='reset'){if(confirm('Đăng xuất tất cả sinh viên và đóng phòng chờ? Điểm đã nộp vẫn giữ.'))await act('/api/h/admin/reset',{},'Đã làm mới.')}
+  else if(a==='clear'||a==='reset'){
+    if(CONF!==a){CONF=a;clearTimeout(confT);confT=setTimeout(()=>{CONF='';lastSig='';draw()},5000);lastSig='';draw();return}
+    CONF='';clearTimeout(confT);
+    if(a==='clear')await act('/api/h/admin/clear',{g:SEL,confirm:'XOA'},'Đã xóa điểm Nhóm '+SEL+'.');else await act('/api/h/admin/reset',{},'Đã đăng xuất tất cả sinh viên.');
+  }
   else if(a==='xlsx'){
     try{const r=await fetch('/api/h/admin/report.xlsx',{headers:H()});if(!r.ok)throw new Error('Không tải được file');const bl=await r.blob();const u=URL.createObjectURL(bl);const l=document.createElement('a');l.href=u;l.download='HMO102-cham-cheo.xlsx';l.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}catch(x){ERR=x.message;lastSig='';draw()}
   }

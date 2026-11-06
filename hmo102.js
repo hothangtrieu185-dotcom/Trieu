@@ -258,7 +258,7 @@ module.exports = function init({ ExcelJS, QRCode, parseRoster, DATA_DIR }) {
     }
     if (p === '/api/h/admin/start') {
       if (!S || S.status !== 'open') { fail(res, 409, 'Chưa có phòng chờ đang mở.'); return true; }
-      S.status = 'running'; S.startsAt = Date.now() + 3000; S.endsAt = S.startsAt + S.minutes * 60000; save(); send(res, 200, { ok: true }); return true;
+      S.status = 'running'; S.startsAt = Date.now() + 5000; S.endsAt = S.startsAt + S.minutes * 60000; save(); send(res, 200, { ok: true }); return true;
     }
     if (p === '/api/h/admin/extend') {
       if (!S || S.status !== 'running') { fail(res, 409, 'Chưa đang chấm.'); return true; }

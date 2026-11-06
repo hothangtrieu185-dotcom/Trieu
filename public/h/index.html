@@ -104,7 +104,16 @@ function paint(){
   else if(m==='count'){app.innerHTML=head(v)+'<div class="card"><div class="eyebrow">Sắp bắt đầu</div><div class="big-clock" id="cd">3</div><div class="small muted" style="text-align:center">Chuẩn bị, phiếu chấm sắp mở</div></div>';bar.innerHTML=''}
   else gradeView(v);
 }
+function cdOverlay(){
+  const v=S.v,R=v&&v.session,n=nowS();let ov=document.getElementById('cdo');
+  const on=R&&R.mine&&R.inRoom&&R.status==='running'&&n<R.startsAt;
+  if(!on){if(ov)ov.remove();return}
+  if(!ov){ov=document.createElement('div');ov.id='cdo';ov.className='cdo';ov.innerHTML='<div class="s">Chuẩn bị chấm điểm</div><div class="nn" id="cdn"></div><div class="s2">Phiếu chấm sắp mở, giữ nguyên màn hình</div>';document.body.appendChild(ov)}
+  const left=Math.max(1,Math.ceil((R.startsAt-n)/1000)),nn=document.getElementById('cdn');
+  if(nn.textContent!==String(left)){nn.textContent=left;nn.style.animation='none';void nn.offsetWidth;nn.style.animation='';if(navigator.vibrate){try{navigator.vibrate(60)}catch(e){}}}
+}
 function tick(){
+  cdOverlay();
   const v=S.v,R=v&&v.session;if(!R||!R.mine||!R.inRoom||R.status!=='running'){tm.hidden=true;return}
   const n=nowS();
   if(n<R.startsAt){tm.hidden=true;const c=document.getElementById('cd');if(c)c.textContent=Math.max(1,Math.ceil((R.startsAt-n)/1000));if(n>=R.startsAt-300){S.sig='';paint()}return}
@@ -148,7 +157,7 @@ document.addEventListener('click',async e=>{
   else if(a==='enter'){const c=(document.getElementById('rc').value||'').trim().toUpperCase();if(!c){S.err='Nhập mã phòng.';S.sig='';return paint()}await tryEnter(c,false)}
   else if(a==='submit')await submit();
   else if(a==='logout'){
-    if(!confirm('Đăng xuất khỏi phòng chờ?'))return;
+    if(!b.dataset.sure){b.dataset.sure='1';b.textContent='Bấm lần nữa để đăng xuất';b.classList.remove('ghost');b.classList.add('brass');setTimeout(()=>{if(b.isConnected){delete b.dataset.sure;b.textContent='Đăng xuất';b.classList.add('ghost');b.classList.remove('brass')}},4000);return}
     try{await api('/api/h/leave',{method:'POST',headers:{'X-Token':S.tok},body:'{}'})}catch(x){}
     S.tok='';S.me=null;S.v=null;S.draft=null;S.sent=null;S.sig='';S.err='';S.msg='';S.room='';try{history.replaceState(null,'',location.pathname)}catch(x){}
     save();tm.hidden=true;bar.innerHTML='';loginView();
@@ -170,5 +179,5 @@ async function submit(){
 load();
 try{const r=new URLSearchParams(location.search).get('r');if(r){S.room=r.trim().toUpperCase();history.replaceState(null,'','/hmo102')}}catch(e){}
 if(S.tok){poll()}else loginView();
-setInterval(poll,2000);setInterval(tick,250);
+setInterval(poll,1000);setInterval(tick,250);
 </script></body></html>
