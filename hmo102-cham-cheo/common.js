@@ -13,10 +13,11 @@ async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncod
 const b64e=s=>btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const b64d=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return new TextDecoder().decode(Uint8Array.from(atob(s),c=>c.charCodeAt(0)))};
 /* Mã kết quả: HMO1.<base64url JSON>. Mảng điểm = [rep,pre,res,col,nhận xét] */
+let ENDAT=0;
 function encodeResult(gid,rid,rname,scores,self){
   const arr=v=>[v.rep,v.pre,v.res,v.col,(v.comment||'').trim()];
   const s={};Object.keys(scores).forEach(k=>s[k]=arr(scores[k]));
-  return 'HMO1.'+b64e(JSON.stringify({v:1,g:gid,r:rid,n:rname,t:Date.now(),s,f:arr(self)}));
+  return 'HMO1.'+b64e(JSON.stringify({v:1,g:gid,r:rid,n:rname,t:Date.now(),e:ENDAT||0,s,f:arr(self)}));
 }
 function decodeResult(code){
   try{
@@ -26,10 +27,11 @@ function decodeResult(code){
     const scores={};Object.keys(o.s).forEach(k=>scores[k]=obj(o.s[k]));
     const ok=v=>[v.rep,v.pre,v.res,v.col].every(x=>x>=1&&x<=5);
     if(!Object.values(scores).every(ok))return null;
-    return{gid:o.g,raterId:o.r,raterName:o.n,submittedAt:o.t,scores,self:o.f?obj(o.f):null};
+    return{gid:o.g,raterId:o.r,raterName:o.n,submittedAt:o.t,endAt:+o.e||0,scores,self:o.f?obj(o.f):null};
   }catch(e){return null}
 }
-function isOpen(g){return g&&g.open!==false&&(!g.deadline||Date.now()<=g.deadline)}
+function isOpen(g){return g&&g.open!==false&&(!ENDAT||Date.now()<=ENDAT)&&(!g.deadline||Date.now()<=g.deadline)}
+const mmss=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 /* ---------- tính điểm ---------- */
 function calc(g,ratings){
   const rs=ratings.filter(r=>r.gid===g.id);
@@ -50,7 +52,8 @@ function calc(g,ratings){
     const rn=r.raterName||r.raterId;
     const vals=[];g.members.forEach(m=>{if(m.id!==r.raterId&&r.scores&&r.scores[m.id])CRIT.forEach(c=>vals.push(r.scores[m.id][c.k]))});
     if(vals.length>=8&&vals.every(v=>v===vals[0]))flags.push({who:rn,t:'Chấm toàn một mức ('+vals[0]+' sao) cho mọi bạn'});
-    if(g.deadline&&r.submittedAt>g.deadline)flags.push({who:rn,t:'Nộp sau hạn ('+fmtT(r.submittedAt)+')'});
+    const dl=r.endAt||g.deadline;
+    if(dl&&r.submittedAt>dl+3000)flags.push({who:rn,t:'Nộp sau hạn ('+fmtT(r.submittedAt)+')'});
     g.members.forEach(m=>{
       if(m.id===r.raterId||!r.scores||!r.scores[m.id])return;
       const mine=mean(CRIT.map(c=>r.scores[m.id][c.k]));

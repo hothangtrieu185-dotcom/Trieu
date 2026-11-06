@@ -5,6 +5,7 @@
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head><body>
 <header class="band"><div class="in">
@@ -12,7 +13,7 @@
   <h1>Tổng hợp chấm chéo</h1>
   <p>Dán cột “Mã kết quả” từ Google Sheet, hoặc tải file CSV về, trang này tự tính hệ số điều chỉnh.</p>
 </div></header>
-<div class="wrap" id="app"></div>
+<div class="wrap"><div id="clock"></div><div id="app"></div></div>
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
@@ -54,6 +55,33 @@ function render(){
   app.innerHTML=h;
 }
 const app=document.getElementById('app');
+/* ---------- hẹn giờ ---------- */
+const TK='hmo102-peer-timer-v1';
+const T={end:0,dur:10};
+try{const o=JSON.parse(localStorage.getItem(TK)||'null');if(o){T.end=o.end||0;T.dur=o.dur||10}}catch(e){}
+function saveT(){try{localStorage.setItem(TK,JSON.stringify(T))}catch(e){}}
+function studentUrl(){return new URL('index.html',location.href).href.split('?')[0]+'?end='+T.end}
+function qrImg(url){const q=qrcode(0,'M');q.addData(url);q.make();return q.createDataURL(8,3)}
+function drawClock(rebuild){
+  const el=document.getElementById('clock');
+  const left=T.end-Date.now(),running=T.end&&left>0,over=T.end&&left<=0;
+  if(rebuild||!el.dataset.k||el.dataset.k!==(T.end?'run':'idle')+(over?'o':'')){
+    el.dataset.k=(T.end?'run':'idle')+(over?'o':'');
+    let h='<div class="card"><h2>Hẹn giờ chấm</h2>';
+    if(!T.end){
+      h+='<p class="small muted" style="margin:0">Chọn thời gian rồi bấm Bắt đầu. Trang sẽ hiện đồng hồ lớn và mã QR có kèm giờ kết thúc. Sinh viên quét mã này, trang chấm của họ tự đếm ngược và khóa khi hết giờ.</p><div class="chips" style="margin-top:12px">'+[5,10,15,20].map(m=>`<button class="chip" data-act="dur" data-m="${m}" aria-pressed="${T.dur===m}">${m} phút</button>`).join('')+'</div><div style="margin-top:14px"><button class="btn brass" data-act="start">Bắt đầu đếm ngược</button></div>';
+    }else{
+      const url=studentUrl();
+      h+=`<div class="big-clock" id="bc"></div><div class="small muted" style="text-align:center" id="bcs"></div><img class="qr" alt="Mã QR vào chấm" src="${qrImg(url)}"><p class="small muted" style="text-align:center;margin:8px 0 0">Chiếu mã này lên màn hình. Ai quét sau sẽ có ít thời gian hơn.</p><div class="row" style="margin-top:14px;justify-content:center"><button class="btn ghost sm" data-act="copyLink">Sao chép link</button><button class="btn ghost sm" data-act="extend">Thêm 5 phút</button><button class="btn ghost sm" data-act="stop" style="color:var(--bad)">Dừng và đặt lại</button></div>`;
+    }
+    el.innerHTML=h+'</div>';
+  }
+  if(T.end){
+    const bc=document.getElementById('bc'),bs=document.getElementById('bcs');
+    if(bc){bc.textContent=left>0?mmss(left):'Hết giờ';bc.className='big-clock'+(left<=60000?' low':'');bs.textContent='Kết thúc lúc '+new Date(T.end).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+  }
+}
+setInterval(()=>drawClock(false),500);
 function setRaw(v){S.raw=v;try{localStorage.setItem(LS,v)}catch(e){}}
 document.addEventListener('change',e=>{
   const t=e.target;
@@ -64,6 +92,11 @@ document.addEventListener('change',e=>{
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
   if(b.dataset.act==='clear'){setRaw('');render()}
+  else if(b.dataset.act==='dur'){T.dur=+b.dataset.m;saveT();drawClock(true)}
+  else if(b.dataset.act==='start'){T.end=Date.now()+T.dur*60000;saveT();drawClock(true)}
+  else if(b.dataset.act==='extend'){T.end+=5*60000;saveT();drawClock(true)}
+  else if(b.dataset.act==='stop'){T.end=0;saveT();drawClock(true)}
+  else if(b.dataset.act==='copyLink'){navigator.clipboard.writeText(studentUrl()).then(()=>{b.textContent='Đã sao chép'}).catch(()=>{b.textContent=studentUrl()})}
   else if(b.dataset.act==='export'){
     const sum=[['Nhóm','Thành viên','Số bạn chấm',...CRIT.map(c=>c.t),'TB chung','Hệ số điều chỉnh','Tự đánh giá']];
     const det=[['Nhóm','Người chấm','Người được chấm',...CRIT.map(c=>c.t),'TB','Nhận xét','Thời gian nộp']];
@@ -78,5 +111,5 @@ document.addEventListener('click',e=>{
     XLSX.writeFile(wb,'HMO102-cham-cheo-nhom.xlsx');
   }
 });
-render();
+render();drawClock(true);
 </script></body></html>

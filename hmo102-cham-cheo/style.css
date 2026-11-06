@@ -88,3 +88,8 @@ details.g .body{padding:0 16px 16px}
 .qr{display:block;margin:12px auto 0;max-width:220px;width:100%;border-radius:8px}
 textarea.big{min-height:140px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
 .codebox{word-break:break-all;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:120px;overflow:auto;margin-top:8px}
+
+.timer{position:sticky;top:0;z-index:6;text-align:center;padding:8px 16px;background:var(--brass);color:#1A1208;font-weight:600;font-size:14px}
+.timer.low{background:var(--warn);color:#fff}.timer.over{background:var(--bad);color:#fff}
+.big-clock{font-family:var(--serif);font-weight:700;font-size:64px;line-height:1;text-align:center;letter-spacing:.02em;margin:10px 0}
+.big-clock.low{color:var(--bad)}

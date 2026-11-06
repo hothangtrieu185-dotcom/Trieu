@@ -10,6 +10,7 @@
   <h1>Đánh giá đồng đội</h1>
   <p>Chấm đóng góp của từng thành viên trong nhóm. Điểm bạn chấm được ẩn danh với các bạn khác.</p>
 </div></header>
+<div id="timer" class="timer" hidden></div>
 <div class="wrap" id="app"><div class="empty">Đang tải danh sách nhóm...</div></div>
 <div id="bar"></div>
 <script src="config.js"></script>
@@ -19,8 +20,23 @@ const LS='hmo102-peer-v1';
 const S={me:null,draft:null,pick:{gid:'',mid:''},err:'',msg:'',busy:false,sent:null,lastCode:''};
 const app=document.getElementById('app'),bar=document.getElementById('bar');
 const grp=id=>CFG.groups.find(g=>g.id===id);
+function applyEnd(){
+  let end=0;
+  try{const p=new URLSearchParams(location.search).get('end');if(p&&/^\d{12,14}$/.test(p))end=+p}catch(e){}
+  if(!end){try{const o=JSON.parse(localStorage.getItem(LS)||'null');if(o&&o.end&&Date.now()<o.end+6*3600000)end=o.end}catch(e){}}
+  ENDAT=end;
+}
+let tick=null,wasOpen=true;
+function updateTimer(){
+  const el=document.getElementById('timer');
+  if(!ENDAT){el.hidden=true;return}
+  const left=ENDAT-Date.now();el.hidden=false;
+  el.className='timer'+(left<=0?' over':left<=60000?' low':'');
+  el.innerHTML=left>0?`Còn lại <b>${mmss(left)}</b> để chấm`:'Đã hết giờ chấm';
+  if(left<=0&&wasOpen){wasOpen=false;if(S.me)render()}
+}
 function load(){try{const o=JSON.parse(localStorage.getItem(LS)||'null');if(o){S.me=o.me||null;S.draft=o.draft||null;S.sent=o.sent||null;S.lastCode=o.lastCode||''}}catch(e){}}
-function save(){try{localStorage.setItem(LS,JSON.stringify({me:S.me,draft:S.draft,sent:S.sent,lastCode:S.lastCode}))}catch(e){}}
+function save(){try{localStorage.setItem(LS,JSON.stringify({me:S.me,draft:S.draft,sent:S.sent,lastCode:S.lastCode,end:ENDAT}))}catch(e){}}
 function blank(){return{rep:0,pre:0,res:0,col:0,comment:''}}
 function initDraft(g,me){const d={gid:g.id,mid:me.id,scores:{},self:blank()};g.members.forEach(m=>{if(m.id!==me.id)d.scores[m.id]=blank()});S.draft=d;save()}
 function ready(v,self){const low=CRIT.some(c=>v[c.k]&&v[c.k]<3);return CRIT.every(c=>v[c.k])&&(self||!low||v.comment.trim().length>=10)}
@@ -42,7 +58,7 @@ function render(){
   if(!S.draft||S.draft.gid!==g.id||S.draft.mid!==me.id)initDraft(g,me);
   const open=isOpen(g),peers=g.members.filter(m=>m.id!==me.id);
   let h=`<div class="card"><div class="row" style="justify-content:space-between"><div><div class="eyebrow">${esc(g.name)}</div><h2 style="margin:2px 0 0">Xin chào ${esc(me.name)}</h2></div><button class="btn ghost sm" data-act="logout">Đổi người dùng</button></div>`;
-  h+=`<p class="small muted" style="margin:10px 0 0">Chấm từ 1 đến 5 cho 4 tiêu chí. Dưới 3 ở bất kỳ tiêu chí nào thì cần ghi lý do. Bạn nộp lại được đến hạn <b>${esc(fmtT(g.deadline))}</b>, bài nộp sau cùng là bài được tính.</p></div>`;
+  h+=`<p class="small muted" style="margin:10px 0 0">Chấm từ 1 đến 5 cho 4 tiêu chí. Dưới 3 ở bất kỳ tiêu chí nào thì cần ghi lý do. ${ENDAT?'Bạn nộp lại được đến khi hết giờ':'Bạn nộp lại được đến hạn <b>'+esc(fmtT(g.deadline))+'</b>'}, bài nộp sau cùng là bài được tính.</p></div>`;
   if(S.sent)h+=`<div class="notice">Bạn đã nộp lúc ${esc(fmtT(S.sent))}. ${open?'Muốn sửa thì chỉnh bên dưới rồi bấm Nộp lại.':''}</div>`;
   if(!open)h+='<div class="notice bad">Chấm chéo đã đóng.</div>';
   if(S.lastCode)h+=`<div class="card"><h3>Mã dự phòng</h3><p class="small muted" style="margin:4px 0 0">Nếu không chắc đã gửi được, hãy sao chép mã này và gửi cho giảng viên qua Zalo hoặc LMS.</p><div class="codebox" id="cb">${esc(S.lastCode)}</div><div style="margin-top:10px"><button class="btn ghost sm" data-act="copy">Sao chép mã</button></div></div>`;
@@ -112,5 +128,5 @@ async function submit(){
   }catch(x){S.err='Chưa gửi được, hãy gửi mã dự phòng cho giảng viên.'}
   S.busy=false;save();render();
 }
-load();render();
+load();applyEnd();save();wasOpen=isOpen({open:true});render();updateTimer();tick=setInterval(updateTimer,500);
 </script></body></html>
