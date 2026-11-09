@@ -46,24 +46,6 @@
   function groupName(g) { return g.cls + ' · Nhóm ' + g.group; }
   var pick = {};   // lựa chọn tạm của giảng viên, giữ lại khi trang tự làm mới
   var openDet = {}; // danh sách thành viên nào đang mở
-  // ô "chuyển sang nhóm tiếp theo" nằm ngay trong thẻ nhóm đang chấm
-  function nextPanel(ag) {
-    var others = S.groups.filter(function (g) { return g.key !== ag.key; });
-    if (!others.length) return '';
-    var sel = pick.nextkey && others.some(function (g) { return g.key === pick.nextkey; }) ? pick.nextkey : (others.filter(function (g) { return !g.order; })[0] || others[0]).key;
-    return '<div style="margin-top:16px;padding:14px;border:1.5px dashed var(--line);border-radius:12px;background:var(--bg)"><b>Chuyển sang nhóm tiếp theo</b>' +
-      '<p class="muted small" style="margin:4px 0 8px">Phần trình bày hiện tại sẽ đóng chấm, rồi đếm ngược 5 giây trước khi mở chấm nhóm mới.</p>' +
-      '<div class="row" style="align-items:flex-end"><div style="flex:1;min-width:190px"><label style="margin:0 0 4px">Nhóm</label><select id="nextkey" class="fsel2" data-id="nextkey">' +
-      others.map(function (g) { return '<option value="' + esc(g.key) + '"' + (g.key === sel ? ' selected' : '') + '>' + esc(groupName(g)) + (g.order ? ' (đã trình bày, ' + g.n + ' lượt)' : '') + '</option>'; }).join('') + '</select></div>' +
-      '<div style="flex:1;min-width:190px" id="nextformwrap"><label style="margin:0 0 4px">Hình thức dự án</label>' + formSelect('nextform', pick.nextform) + '</div>' +
-      '<button class="accent" id="nextgo" disabled>Chuyển nhóm và đếm ngược</button></div></div>';
-  }
-  function updNext() {
-    var k = document.getElementById('nextkey'); if (!k) return;
-    var g = S.groups.filter(function (x) { return x.key === k.value; })[0], need = g && !g.form;
-    document.getElementById('nextformwrap').style.display = need ? '' : 'none';
-    document.getElementById('nextgo').disabled = !g || (need && !document.getElementById('nextform').value);
-  }
   function membersHtml(g, showJoin) {
     var joined = g.list.filter(function (m) { return m.joined; }).length;
     return '<details class="mem" data-k="' + esc(g.key) + '"' + (openDet[g.key] ? ' open' : '') + '><summary class="small"><b>Thành viên (' + g.list.length + ')</b>' + (showJoin ? ' · đã vào phòng ' + joined + '/' + g.list.length : '') + '</summary>' +
@@ -105,41 +87,35 @@
       h += '<div class="card" style="padding:12px 16px"><div class="row" style="justify-content:space-between"><button class="ghost" id="unlobby">← Quay lại bước chuẩn bị</button><button class="ghost" id="logout2">Đăng xuất</button></div><p class="muted small" style="margin:8px 0 0">Quay lại để đổi lớp hoặc tải lại danh sách. Các bạn đã vào phòng sẽ phải quét lại QR.</p></div>' +
         '<div class="grid two"><div class="card center"><h2>Mã QR cho sinh viên' + (S.sessionClass ? ' · lớp ' + esc(S.sessionClass) : '') + '</h2><div class="qrbox" style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:2px solid var(--brand)"><img src="/qr.svg" alt="QR" style="width:220px;height:220px;display:block"></div>' +
         '<p class="small muted" id="url" style="margin-top:8px"></p><p class="small muted">Để chiếu QR lớn cho cả lớp, bấm "Mở màn hình chiếu".</p></div>' +
-        '<div class="card"><h2>Bước 3. Kích hoạt chấm</h2><p><b style="font-size:32px">' + S.joined + '</b> <span class="muted">/ ' + S.total + ' sinh viên đã vào</span></p>' +
-        '<label style="margin-top:0">Nhóm trình bày đầu tiên</label><select id="first">' + S.groups.map(function (g) { return '<option value="' + esc(g.key) + '"' + (pick.first === g.key ? ' selected' : '') + '>' + esc(groupName(g)) + '</option>'; }).join('') + '</select>' +
-        '<label>Hình thức dự án của nhóm này</label>' + formSelect('firstform', pick.firstform) +
-        '<div style="margin-top:14px"><button class="accent full" id="start"' + (pick.firstform ? '' : ' disabled') + '>Kích hoạt hệ thống chấm (đếm ngược 5 giây)</button></div></div></div>' +
+        '<div class="card"><h2>Bước 3. Chọn hình thức dự án và mở phòng chấm</h2><p><b style="font-size:32px">' + S.joined + '</b> <span class="muted">/ ' + S.total + ' sinh viên đã vào</span></p>' +
+        '<p class="muted small">Tất cả các nhóm được chấm cùng lúc trong một phòng chung, nên hãy chọn hình thức (Workshop, Video, Fanpage Facebook) cho từng nhóm trước.</p>' +
+        '<table><tr><th>Nhóm</th><th>Hình thức dự án</th></tr>' + S.groups.map(function (g) { return '<tr><td>Nhóm ' + g.group + '</td><td>' + formSelect('gf_' + g.key, g.form, 'gform').replace('<select ', '<select data-k="' + esc(g.key) + '" ') + '</td></tr>'; }).join('') + '</table>' +
+        '<div style="margin-top:14px"><button class="accent full" id="start"' + (S.groups.every(function (g) { return g.form; }) ? '' : ' disabled') + '>Mở phòng chấm cho tất cả các nhóm (đếm ngược 5 giây)</button></div></div></div>' +
         '<div class="card"><h2>Thành viên từng nhóm</h2><p class="muted small">Xem ai đã vào phòng, ai chưa.</p><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">' +
         S.groups.map(function (g) { return '<div class="gcard"><b>' + esc(groupName(g)) + '</b><div style="margin-top:6px">' + membersHtml(g, true) + '</div></div>'; }).join('') + '</div></div>';
     }
 
-    // 4. đang chấm / kết thúc
+    // 4. phòng chấm chung / kết thúc
     if (S.phase === 'grading' || S.phase === 'ended') {
-      var ag = S.groups.filter(function (g) { return g.key === S.activeKey; })[0];
-      if (S.phase === 'grading' && ag) {
-        var pct = ag.eligible ? Math.round(ag.n / ag.eligible * 100) : 0;
-        h += '<div class="card" style="border-color:var(--accent)"><div class="row" style="justify-content:space-between"><div><span class="tag">Phần trình bày thứ ' + ag.order + '</span> <span class="tag warn">' + esc(ag.formLabel) + '</span>' +
-          '<h2 style="margin-top:8px">' + esc(groupName(ag)) + '</h2></div><div class="center"><div class="small muted">Điểm trung bình hiện tại</div><div style="font-size:44px;font-weight:800;color:var(--accent);line-height:1">' + (ag.total == null ? '—' : ag.total.toFixed(2)) + '</div></div></div>' +
-          '<div class="row small" style="margin:8px 0 4px"><span>Đã chấm <b>' + ag.n + '</b> / ' + ag.eligible + ' sinh viên đủ điều kiện</span><span class="tag ' + (S.open ? 'ok' : 'bad') + '">' + (S.open ? 'Đang mở chấm' : 'Đã đóng chấm') + '</span>' + (S.startsAt && (S.startsAt - (S.now + (Date.now() - S.fetchedAt))) > 0 ? '<span class="tag warn">Đang đếm ngược 5 giây</span>' : '') + '</div>' +
-          '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
-          '<div class="row" style="margin-top:14px">' + (S.open ? '<button id="close" class="danger">Đóng chấm nhóm này</button>' : '<button id="open">Mở lại chấm</button>') + '<button id="back" class="ghost">← Quay lại phòng chờ</button>' +
-          '<button class="ghost greset" data-k="' + esc(ag.key) + '"' + (ag.n ? '' : ' disabled') + '>Reset điểm nhóm này</button>' +
+      if (S.phase === 'grading') {
+        var done = S.finished, tot = S.joined, pct = tot ? Math.round(done / tot * 100) : 0;
+        h += '<div class="card" style="border-color:var(--accent)"><div class="row" style="justify-content:space-between"><div><span class="tag ' + (S.open ? 'ok' : 'bad') + '">' + (S.open ? 'Phòng chấm đang mở' : 'Phòng chấm đã đóng') + '</span>' +
+          '<h2 style="margin-top:8px">Phòng chấm chung · ' + esc(S.sessionClass || '') + '</h2></div><div class="center"><div class="small muted">Sinh viên đã chấm xong tất cả</div><div style="font-size:44px;font-weight:800;color:var(--accent);line-height:1">' + done + ' / ' + tot + '</div></div></div>' +
+          '<div class="bar" style="margin-top:8px"><i style="width:' + pct + '%"></i></div>' +
+          '<div class="row" style="margin-top:14px">' + (S.open ? '<button id="close" class="danger">Đóng phòng chấm</button>' : '<button id="open">Mở lại phòng chấm</button>') + '<button id="back" class="ghost">← Quay lại phòng chờ</button>' +
           '<label class="row" style="margin:0;font-weight:500"><input type="checkbox" id="live"' + (S.showLive ? ' checked' : '') + '> Hiện điểm trực tiếp trên màn hình chiếu</label></div>' +
-          ((S.pending && S.pending.length) ? '<details style="margin-top:12px"><summary class="small"><b>' + S.pending.length + '</b> sinh viên chưa chấm</summary><p class="small muted" style="margin-top:8px">' + S.pending.map(function (p) { return esc(p.name) + ' (' + esc(p.mssv) + ')'; }).join(' · ') + '</p></details>' : '') + nextPanel(ag) + '</div>';
+          ((S.pending && S.pending.length) ? '<details style="margin-top:12px"><summary class="small"><b>' + S.pending.length + '</b> sinh viên chưa chấm đủ</summary><p class="small muted" style="margin-top:8px">' + S.pending.map(function (p) { return esc(p.name) + ' (' + esc(p.mssv) + ', còn ' + p.left + ' nhóm)'; }).join(' · ') + '</p></details>' : '<p class="small muted" style="margin-top:12px">Mọi sinh viên đã vào phòng đều chấm đủ các nhóm.</p>') + '</div>';
       }
-      h += '<div class="card"><h2>' + (S.phase === 'ended' ? 'Kết quả' : 'Các phần trình bày') + '</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">';
+      h += '<div class="card"><h2>' + (S.phase === 'ended' ? 'Kết quả' : 'Điểm từng nhóm') + '</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">';
       S.groups.forEach(function (g) {
-        var act = g.key === S.activeKey && S.phase === 'grading';
-        h += '<div class="gcard' + (act ? ' active' : '') + '"><div class="row" style="justify-content:space-between"><b>' + esc(groupName(g)) + '</b>' + (g.form ? '<span class="tag warn">' + esc(g.formLabel) + '</span>' : '<span class="tag">Chưa chọn</span>') + '</div>' +
-          '<div class="small muted" style="margin:6px 0">' + (g.order ? 'Thứ ' + g.order + ' · ' + g.n + ' lượt chấm' : 'Chưa trình bày') + '</div>' +
+        h += '<div class="gcard"><div class="row" style="justify-content:space-between"><b>' + esc(groupName(g)) + '</b>' + (g.form ? '<span class="tag warn">' + esc(g.formLabel) + '</span>' : '<span class="tag">Chưa chọn</span>') + '</div>' +
+          '<div class="small muted" style="margin:6px 0">' + g.n + ' / ' + g.eligible + ' lượt chấm</div>' +
           '<div style="font-size:26px;font-weight:800">' + (g.total == null ? '—' : g.total.toFixed(2)) + '</div>' +
           '<div style="margin:6px 0">' + membersHtml(g, S.phase === 'grading') + '</div>' +
-          (S.phase === 'grading' && g.n && !act ? '<button class="ghost full greset" data-k="' + esc(g.key) + '" style="margin-bottom:8px">Reset điểm nhóm này (' + g.n + ' lượt)</button>' : '') +
-          (S.phase === 'grading' && !act ? (g.form ? '' : '<div style="margin-top:8px">' + formSelect('gf_' + g.key, pick['gf_' + g.key], 'fsel2') + '</div>') +
-            '<button class="' + (g.order ? 'ghost' : 'accent') + ' full gstart" data-k="' + esc(g.key) + '" style="margin-top:8px"' + (!g.form && !pick['gf_' + g.key] ? ' disabled' : '') + '>' + (g.order ? 'Mở lại nhóm này' : 'Chuyển sang nhóm này') + '</button>' : '') + '</div>';
+          (S.phase === 'grading' && g.n ? '<button class="ghost full greset" data-k="' + esc(g.key) + '" style="margin-bottom:8px">Reset điểm nhóm này (' + g.n + ' lượt)</button>' : '') + '</div>';
       });
       h += '</div></div>';
-      if (S.phase === 'grading') h += '<div class="card"><h2>Bước 5. Kết thúc buổi chấm</h2><p class="muted small">Sau khi kết thúc, sinh viên của từng nhóm sẽ thấy điểm tổng của nhóm mình trên điện thoại, và màn hình chiếu hiện bảng kết quả. Anh tải báo cáo Excel ở nút phía trên.</p><button class="danger" id="end">Kết thúc buổi chấm</button></div>';
+      if (S.phase === 'grading') h += '<div class="card"><h2>Kết thúc buổi chấm</h2><p class="muted small">Sau khi kết thúc, sinh viên của từng nhóm sẽ thấy điểm tổng của nhóm mình trên điện thoại, và màn hình chiếu hiện bảng kết quả. Anh tải báo cáo Excel ở nút phía trên.</p><button class="danger" id="end">Kết thúc buổi chấm</button></div>';
       if (S.phase === 'ended') h += '<div class="card"><p class="muted small">Buổi chấm đã kết thúc. Hãy tải báo cáo Excel trước khi bắt đầu buổi mới.</p><button class="ghost" id="reset">Bắt đầu buổi chấm mới (xóa toàn bộ điểm)</button></div>';
     }
     app.innerHTML = h; bind();
@@ -173,22 +149,9 @@
       fs.reduce(function (p, f) { return p.then(function () { return f.arrayBuffer().then(function (buf) { return api('/api/admin/roster', { method: 'POST', body: buf, headers: { 'Content-Type': 'application/octet-stream' } }); }); }); }, Promise.resolve())
         .then(function () { load(true); }).catch(function (e) { notice = e.message; load(true); });
     };
-    document.querySelectorAll('.fsel2').forEach(function (s) {
-      s.onchange = function () {
-        pick[s.getAttribute('data-id')] = s.value || '';
-        if (s.id === 'nextkey' || s.id === 'nextform') { updNext(); return; }
-        var btn = s.id === 'firstform' ? $('start') : (s.parentNode.nextElementSibling);
-        if (btn) btn.disabled = !s.value;
-      };
+    document.querySelectorAll('.gform').forEach(function (s) {
+      s.onchange = function () { var o = {}; o[s.getAttribute('data-k')] = s.value || null; api('/api/admin/forms', { json: { forms: o } }).then(function () { load(true); }).catch(function (e) { if (e.message !== 'login') { notice = e.message; load(true); } }); };
     });
-    if ($('first')) $('first').onchange = function () { pick.first = this.value; };
-    if ($('nextgo')) {
-      updNext();
-      $('nextgo').onclick = function () {
-        var k = $('nextkey').value, g = S.groups.filter(function (x) { return x.key === k; })[0], f = g && !g.form ? $('nextform').value : '';
-        modal('Chuyển sang ' + esc(groupName(g)) + '?', 'Phần trình bày hiện tại sẽ đóng chấm, màn hình chiếu và điện thoại sinh viên đếm ngược 5 giây rồi mở chấm nhóm mới.', 'Chuyển nhóm', 'accent', function () { act('/api/admin/start', { key: k, form: f }); });
-      };
-    }
     document.querySelectorAll('.cdel').forEach(function (b) {
       b.onclick = function () {
         var c = b.getAttribute('data-c');
@@ -204,15 +167,14 @@
     });
     if ($('sescls')) $('sescls').onchange = function () { pick.cls = this.value; render(true); };
     if ($('lobby')) $('lobby').onclick = function () { act('/api/admin/lobby', { cls: $('sescls') ? $('sescls').value : '' }); };
-    if ($('start')) $('start').onclick = function () { act('/api/admin/start', { key: $('first').value, form: $('firstform').value }); };
+    if ($('start')) $('start').onclick = function () { act('/api/admin/start', {}); };
     if ($('url')) fetch('/api/public-url').then(function (r) { return r.json(); }).then(function (j) { if ($('url')) $('url').textContent = j.url; });
     if ($('back')) $('back').onclick = function () {
-      modal('Quay lại phòng chờ?', 'Dừng chấm nhóm hiện tại và về màn chọn nhóm. Điểm đã chấm (nếu có) vẫn được giữ, nhóm này chấm lại được sau.', 'Quay lại', 'accent', function () { act('/api/admin/back', {}); });
+      modal('Quay lại phòng chờ?', 'Đóng phòng chấm và về phòng chờ. Điểm đã chấm vẫn được giữ, anh mở lại phòng chấm được sau.', 'Quay lại', 'accent', function () { act('/api/admin/back', {}); });
     };
     if ($('close')) $('close').onclick = function () { act('/api/admin/toggle', { open: false }); };
     if ($('open')) $('open').onclick = function () { act('/api/admin/toggle', { open: true }); };
     if ($('live')) $('live').onchange = function () { act('/api/admin/live', { show: this.checked }); };
-    document.querySelectorAll('.gstart').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-k'), f = pick['gf_' + k] || ''; modal('Chuyển nhóm?', 'Phần trình bày hiện tại sẽ đóng chấm và chuyển sang nhóm được chọn, có đếm ngược 5 giây.', 'Chuyển', 'accent', function () { act('/api/admin/start', { key: k, form: f }); }); }; });
     if ($('end')) $('end').onclick = function () { modal('Kết thúc buổi chấm?', 'Sinh viên sẽ không chấm thêm được nữa và điểm tổng được gửi về từng nhóm. Không thể hoàn tác.', 'Kết thúc', 'danger', function () { act('/api/admin/end'); }); };
     if ($('reset')) $('reset').onclick = function () { modal('Xóa toàn bộ điểm?', 'Toàn bộ điểm và danh sách sinh viên đã vào phòng sẽ bị xóa. Hãy chắc rằng anh đã tải báo cáo Excel.', 'Xóa', 'danger', function () { act('/api/admin/reset', { confirm: 'XOA' }); }); };
   }

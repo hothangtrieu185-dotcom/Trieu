@@ -33,7 +33,7 @@
   function countdown(v) {
     if (cdFor === v.startsAt) return; cdFor = v.startsAt;
     var ov = document.createElement('div'); ov.className = 'cd-screen'; ov.id = 'cdscreen';
-    ov.innerHTML = '<div style="font-size:4vh;opacity:.85">Phần trình bày thứ ' + esc(v.active.order) + ' · ' + esc(v.active.formLabel) + '</div><div style="font-size:6vh;font-weight:800;margin:1vh 0">Chuẩn bị chấm điểm</div><div class="cd-num" id="cdnum"></div>';
+    ov.innerHTML = '<div style="font-size:6vh;font-weight:800;margin:1vh 0">Phòng chấm sắp mở</div><div class="cd-num" id="cdnum"></div>';
     document.body.appendChild(ov); var shown = null;
     function tick() {
       var left = Math.ceil((v.startsAt - now()) / 1000);
@@ -44,7 +44,7 @@
   }
 
   // ---------- dựng khung ----------
-  var TIPS = ['🎯 Chấm công tâm: mỗi tiêu chí một thang điểm từ 0 đến 10.', '🙅 Bạn không được chấm nhóm của chính mình.', '🔒 Điểm đã gửi sẽ không sửa lại được, hãy cân nhắc trước khi bấm gửi.', '📱 Giữ nguyên màn hình điện thoại, đừng thoát khỏi trang chấm.', '👀 Theo dõi màn hình chiếu để xem điểm thay đổi theo từng lượt chấm.', '⏱️ Khi giảng viên bắt đầu sẽ có 5 giây đếm ngược cho cả lớp.'];
+  var TIPS = ['🎯 Chấm công tâm: mỗi tiêu chí một thang điểm từ 0 đến 10.', '🙅 Bạn không được chấm nhóm của chính mình.', '✏️ Bạn sửa lại điểm được đến khi giảng viên đóng phòng chấm.', '📱 Giữ nguyên màn hình điện thoại, đừng thoát khỏi trang chấm.', '👀 Theo dõi màn hình chiếu để xem điểm thay đổi theo từng lượt chấm.', '⏱️ Khi giảng viên bắt đầu sẽ có 5 giây đếm ngược cho cả lớp.'];
   var JOKES = ["Mình đến sớm nhất nè, nhớ ghi công nha!", "Điện thoại sạc đầy 100%, sẵn sàng chiến đấu!", "Chấm nhẹ tay thôi nha, nhóm mình cũng run lắm 🥹", "Tim đập nhanh quá, chưa chấm mà đã hồi hộp rồi", "Ngồi im như tượng, chờ thầy bấm nút…", "Có ai mang theo bánh tráng trộn không?", "Mình chấm công tâm lắm, không thiên vị bạn thân đâu!", "Quét mã xong mà tay vẫn còn run", "Ai chưa vào thì nhanh lên, tụi mình đợi nè 👀", "Mình vào rồi nè, thầy ơi bắt đầu thôi!", "Hôm nay mình là giám khảo, oai chưa?", "Không biết nhóm nào trình bày hay nhất nhỉ?", "Wifi ơi đừng chập chờn vào lúc này nhé 🙏", "Chấm điểm mà vui như đi xem hội chợ", "Nhớ đọc kỹ tiêu chí trước khi chấm nha mọi người", "Mình đang tập trung cao độ, đừng làm phiền!", "Có bạn nào tính chấm 10 điểm hết không? 😏", "Bấm nhầm là hết sửa đó nha, cẩn thận!", "Mình chuẩn bị tinh thần làm giám khảo khó tính", "Hôm nay ai cũng là một chuyên gia thẩm định", "Đang nín thở chờ đếm ngược 5 giây…", "Ai nhớ tắt chế độ tiết kiệm pin chưa?", "Mình đã đọc hết hướng dẫn rồi, đừng hỏi lại nha", "Một, hai, ba… sẵn sàng!", "Chấm xong nhớ vỗ tay cho nhóm bạn nhé 👏", "Ngồi ngay ngắn, mắt nhìn màn hình, tay cầm điện thoại", "Mình vào phòng chờ mà thấy như vào phòng thi", "Bình tĩnh, bình tĩnh, chỉ là chấm điểm thôi mà", "Mình hứa chấm thật công bằng 🤝", "Mình mang theo con mắt tinh đời đây", "Phòng chờ đông vui quá, như đi xem ca nhạc", "Ai chấm xong sớm thì được tự hào một chút ✨", "Cho mình xin ít may mắn để bấm gửi đúng nút", "Có ai thấy mình lẻ loi không? Mình chờ nhóm nào cũng được", "Mình chấm điểm chứ không chấm… công đâu nha", "Chờ hoài mà vẫn thấy vui, lạ thật", "Hôm nay không ai được ngủ gật nha", "Mình đang luyện ngón tay kéo thanh điểm đây", "Kéo thanh điểm mà như chơi trò chơi vậy", "Đừng quên chấm đủ 5 tiêu chí nha cả nhà", "Mình chọn điểm theo cảm xúc… à nhầm, theo tiêu chí!", "Bạn bên cạnh ơi, đừng nhìn điểm của mình 🙈", "Hôm nay mình làm giám khảo, ngày mai mình lên thuyết trình", "Ghi nhớ ngay: không chấm nhóm của mình nha!", "Mình đang nhẩm tính trọng số trong đầu", "Điểm cao hay thấp cũng cần có lý do, đúng không?", "Mình ngồi đây từ nãy, ghế còn chưa ấm", "Hồi hộp hơn cả lúc chờ điểm cuối kỳ", "Ai có kẹo không, mình xin một viên cho tỉnh táo", "Hôm nay điện thoại mình làm việc chăm chỉ", "Có tiếng ai thì thầm: “thầy sắp bấm rồi đó”…", "Mình đã sẵn sàng cho màn chấm điểm kịch tính", "Mình chỉ cầu mong điện thoại không tự khóa màn hình", "Lỡ tay bấm sai thì mình… tự an ủi thôi", "Chấm điểm mà vui, học mà cũng vui ✌️", "Cứ bình tĩnh, mình chấm xong còn kịp uống nước", "Một bạn nói: “mình đoán thầy sắp bắt đầu”", "Mình ngồi đây, mắt không rời màn chiếu", "Nhóm nào cũng xứng đáng được một tràng pháo tay", "Mình mang đủ tinh thần phản biện nè 🧠", "Hôm nay mình chấm bằng cả trái tim… và tiêu chí", "Mình đếm thử: bao nhiêu bạn ngồi cạnh mình nhỉ?", "Hít thở sâu nào, sắp tới giờ chấm rồi", "Ai quét QR xong mà không thấy gì thì chờ chút nhé", "Không có bài tập nào vui bằng bài tập chấm điểm", "Mình đang tập làm giám khảo chuyên nghiệp", "Nhớ nhìn kỹ phần trình bày rồi hãy chấm nha", "Có ai cùng hội “hồi hộp quá” với mình không?", "Mình đã tắt thông báo để tập trung chấm", "Cười lên nào, không khí vui là điểm cũng đẹp", "Chờ xíu thôi, vui rồi sẽ tới 🎉", "Mình thề sẽ chấm đúng theo thang điểm", "Đừng quên rằng phía sau mỗi nhóm là cả một quá trình làm việc", "Mình ngồi thẳng lưng, sẵn sàng lắng nghe", "Bấm nút “Gửi” thật chậm rãi, cẩn thận kẻo nhầm", "Ai mà chấm 0 điểm thì… chắc ngủ quên rồi", "Chấm điểm đừng thiên vị, nhưng khen thì thoải mái!", "Mình mang theo một đôi tai biết lắng nghe", "Số người trong phòng tăng nhanh như điểm cuối kỳ… hy vọng thế 😆", "Mình thấy phòng chờ hôm nay đông vui ghê", "Chuẩn bị tinh thần: sắp có điểm số nhảy múa trên màn chiếu!", "Mình thích nhất là lúc điểm số cập nhật trực tiếp", "Có ai đoán trước nhóm đầu tiên là ai không?", "Mình đoán sắp có nhóm thuyết trình siêu đỉnh", "Ngồi chờ mà thấy bản thân như phóng viên hiện trường", "Nếu mình biết bay, mình đã vào phòng sớm hơn nữa", "Mình quyết tâm không lướt mạng xã hội trong giờ chấm", "Bữa nay chấm điểm xong, chắc mình đói lắm…", "Mình đang lên dây cót tinh thần", "Hôm nay ai cũng có một quyền lực nho nhỏ: quyền chấm điểm!", "Quyền lực lớn đi kèm trách nhiệm lớn, chấm cẩn thận nha", "Mình đã sẵn sàng, còn bạn thì sao?", "Bạn nào mới vào thì chào nhau một tiếng nhé 👋", "Mình đang chờ, nhưng chờ trong vui vẻ", "Vỗ tay cho những bạn đến đúng giờ nào!", "Lớp mình hôm nay trông thật chuyên nghiệp", "Mình đang nhẩm lại các tiêu chí chấm điểm", "Phòng chờ này vui hơn mình tưởng", "Mình mong được thấy những phần trình bày thật sáng tạo", "Học hỏi từ bạn cũng là một cách để giỏi hơn", "Cứ yên tâm, mình sẽ chấm một cách tử tế", "Cả lớp cùng chấm, cả lớp cùng vui!", "Nghe nói chấm xong sẽ có điểm của nhóm, hồi hộp ghê", "Mình xin cam đoan: không bấm nhầm nút Gửi", "Sẵn sàng khởi động, 3… 2… 1… 🚀"];
   var deck = [];
   function nextJoke() {   // xáo bài: mỗi bạn một câu khác nhau, hết 100 câu mới xáo lại
@@ -86,51 +86,27 @@
     lb.tipTimer = setInterval(function () { var t = $('ltip'); if (!t) { clearInterval(lb.tipTimer); return; } t.style.opacity = 0; setTimeout(function () { lb.tip = (lb.tip + 1) % TIPS.length; t.textContent = TIPS[lb.tip]; t.style.opacity = ''; }, 400); }, 6000);
   }
   function buildGrading(v) {
-    var a = v.active;
-    app.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2vw;flex-wrap:wrap"><div><div style="font-size:3vh;opacity:.8">Phần trình bày thứ ' + a.order + '</div><div style="font-size:5vh;font-weight:800;margin:.4vh 0">' + esc(a.cls) + ' · Nhóm ' + esc(a.group) + '</div><h1 style="font-size:5vh;margin:0">' + esc(a.formLabel) + '</h1></div>' +
-      '<div style="display:flex;align-items:center;gap:1.6vw"><div style="text-align:right"><div style="font-size:2.8vh" id="status"></div><div style="font-size:2.2vh;opacity:.75;margin-top:.8vh">Quét mã để vào chấm<br>nhóm này</div></div>' +
-      '<div class="qrsm"><img src="/qr.svg?g=' + encodeURIComponent(a.key) + '" alt="QR nhóm" style="height:15vh;width:15vh;display:block"><i class="scan"></i><i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i></div></div></div>' +
-      '<div class="sgrid"><div><div class="card-s" style="text-align:center"><div style="font-size:2.6vh;opacity:.8;margin-bottom:1vh">Điểm trung bình</div>' +
-      '<div class="ring"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" fill="none" stroke-width="9"/><circle class="val" id="rv" cx="50" cy="50" r="45" fill="none" stroke-width="9" stroke-dasharray="' + C + '" stroke-dashoffset="' + C + '"/></svg>' +
-      '<div class="mid"><b id="tot">—</b><span style="opacity:.7;font-size:2.4vh">/ 10</span></div></div>' +
-      '<div style="margin-top:2vh;font-size:2.6vh">Đã chấm <b id="pn">0</b> / <span id="pe">0</span> bạn</div><div class="bar" style="margin-top:8px"><i id="pbar" style="width:0%"></i></div></div></div>' +
-      '<div><div class="card-s" id="crits">' + a.criteria.map(function (c) {
-        return '<div class="crow" data-id="' + c.id + '"><div class="t"><span>' + esc(c.name) + ' <span class="w">(' + c.weight + '%)</span></span><span><span class="delta"></span><b class="cv">—</b></span></div><div class="bar"><i style="width:0%"></i></div></div>';
-      }).join('') + '</div></div></div>' +
-      '<div class="sgrid" style="margin-top:2vh;grid-template-columns:1fr 1fr" id="extra"><div class="card-s"><div style="font-size:2.4vh;opacity:.8;margin-bottom:1vh">Phân bố điểm các lượt chấm</div><div class="hist" id="hist">' +
-      '<div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div><div class="hlab"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9+</span></div></div>' +
-      '<div class="card-s"><div style="font-size:2.4vh;opacity:.8;margin-bottom:1vh">Vừa có lượt chấm mới</div><div class="feed" id="feed"></div></div></div>' +
-      '<p id="hide" style="display:none;margin-top:4vh;font-size:2.6vh;opacity:.75;text-align:center">Điểm sẽ được công bố sau khi kết thúc buổi chấm.</p>';
-    lastSeq = 0;
+    app.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2vw;flex-wrap:wrap"><div><div style="font-size:3vh;opacity:.8">Phòng chấm chung</div><div style="font-size:5vh;font-weight:800;margin:.4vh 0">Tất cả các nhóm cùng được chấm</div></div>' +
+      '<div style="display:flex;align-items:center;gap:1.6vw"><div style="text-align:right"><div style="font-size:2.8vh" id="status"></div><div style="font-size:2.2vh;opacity:.75;margin-top:.8vh">Đã chấm xong tất cả: <b id="fin">0</b> / <span id="tj">0</span> bạn</div><div class="bar" style="margin-top:6px"><i id="fbar" style="width:0%"></i></div></div>' +
+      '<div class="qrsm"><img src="/qr.svg" alt="QR" style="height:15vh;width:15vh;display:block"><i class="scan"></i><i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i></div></div></div>' +
+      '<div id="gg" style="display:grid;gap:2vh 1.6vw;margin-top:3vh;grid-template-columns:repeat(auto-fit,minmax(24vw,1fr))">' + v.groups.map(function (g) {
+        return '<div class="card-s gtile" data-k="' + esc(g.key) + '" style="text-align:center"><div style="font-size:3.2vh;font-weight:800">Nhóm ' + g.group + '</div><div style="font-size:2.2vh;opacity:.75;margin:.4vh 0 1.2vh">' + esc(g.formLabel) + '</div>' +
+          '<div style="font-size:8vh;font-weight:900;line-height:1" class="gt">—</div><div style="font-size:2.2vh;opacity:.75;margin-top:1vh"><b class="gn">0</b> / <span class="ge">0</span> lượt chấm</div><div class="bar" style="margin-top:6px"><i class="gb" style="width:0%"></i></div></div>';
+      }).join('') + '</div><p id="hide" style="display:none;margin-top:4vh;font-size:2.6vh;opacity:.75;text-align:center">Điểm sẽ được công bố sau khi kết thúc buổi chấm.</p>';
   }
 
   // ---------- cập nhật ----------
   function updGrading(v) {
-    var a = v.active;
-    $('status').innerHTML = a.open ? '<span class="pulse"></span>Đang mở chấm' : '🔒 Đã đóng chấm';
-    countTo($('tot'), a.total, 2, 900);
-    $('rv').style.strokeDashoffset = C * (1 - (a.total == null ? 0 : a.total / 10));
-    $('pn').textContent = a.n; $('pe').textContent = a.eligible; $('pbar').style.width = (a.eligible ? Math.round(a.n / a.eligible * 100) : 0) + '%';
-    a.criteria.forEach(function (c) {
-      var row = document.querySelector('.crow[data-id="' + c.id + '"]'), cv = row.querySelector('.cv'), old = cv._v;
-      if (c.avg != null && old != null && Math.abs(c.avg - old) >= 0.005) {
-        var d = c.avg - old, dl = row.querySelector('.delta'); dl.textContent = (d > 0 ? '+' : '−') + Math.abs(d).toFixed(2); dl.className = 'delta show'; dl.style.color = d > 0 ? '#17794a' : '#c62828';
-        setTimeout(function () { dl.className = 'delta'; }, 2200); flash(cv, d > 0 ? 'up' : 'down');
-      }
-      countTo(cv, c.avg, 2, 900); row.querySelector('.bar > i').style.width = (c.avg == null ? 0 : c.avg * 10) + '%';
+    $('status').innerHTML = v.open ? '<span class="pulse"></span>Đang mở chấm' : '🔒 Đã đóng chấm';
+    $('fin').textContent = v.finished; $('tj').textContent = v.joined; $('fbar').style.width = (v.joined ? Math.round(v.finished / v.joined * 100) : 0) + '%';
+    var best = Math.max.apply(null, v.groups.map(function (g) { return g.total == null ? -1 : g.total; }));
+    v.groups.forEach(function (g) {
+      var t = document.querySelector('.gtile[data-k="' + g.key + '"]'); if (!t) return;
+      countTo(t.querySelector('.gt'), g.total, 2, 900);
+      t.querySelector('.gn').textContent = g.n; t.querySelector('.ge').textContent = g.eligible; t.querySelector('.gb').style.width = (g.eligible ? Math.round(g.n / g.eligible * 100) : 0) + '%';
+      t.style.outline = (g.total != null && g.total === best && best > 0) ? '0.5vh solid #e0a526' : '';
     });
-    $('hide').style.display = v.showLive ? 'none' : 'block'; $('extra').style.display = v.showLive ? 'grid' : 'none';
-    if (a.hist) {
-      var mx = Math.max(1, Math.max.apply(null, a.hist)), bars = $('hist').children;
-      for (var i = 0; i < 10; i++) bars[i].style.height = (a.hist[i] / mx * 100) + '%';
-    }
-    if (a.feed) {
-      var f = $('feed'), top = a.feed.length ? a.feed[a.feed.length - 1].seq : 0;
-      a.feed.forEach(function (it) {
-        if (it.seq > lastSeq) { var d = document.createElement('div'); d.innerHTML = '🧑‍🎓 Một bạn vừa chấm <b>' + it.total.toFixed(2) + '</b>'; f.insertBefore(d, f.firstChild); }
-      });
-      while (f.children.length > 5) f.removeChild(f.lastChild); lastSeq = Math.max(lastSeq, top);
-    }
+    $('hide').style.display = v.showLive ? 'none' : 'block';
   }
   function updLobby(v) {
     var total = v.total || 0, newJ = v.joined - lb.joined;
@@ -200,16 +176,16 @@
 
   function apply(v) {
     offset = v.now - Date.now();
-    var m = v.phase + (v.active ? ':' + v.active.key : '');
+    var m = v.phase;
     if (m !== mode) {
       mode = m; app.classList.toggle('lobby-on', v.phase === 'lobby'); document.querySelectorAll('.sbl').forEach(function (x) { x.remove(); }); if (v.phase !== 'lobby') clearInterval(lb.sayTimer);
       if (v.phase === 'setup') app.innerHTML = '<div style="text-align:center;margin-top:20vh"><h1 style="font-size:5vh">Buổi chấm điểm</h1><p style="font-size:3vh;opacity:.8">Đang chuẩn bị...</p></div>';
       else if (v.phase === 'lobby') buildLobby();
-      else if (v.phase === 'grading') { if (v.active) buildGrading(v); else app.innerHTML = '<div style="text-align:center;margin-top:20vh"><h1 style="font-size:5vh">Vui lòng chờ phần trình bày tiếp theo</h1></div>'; }
+      else if (v.phase === 'grading') { buildGrading(v); }
       else { buildEnded(v); }
     }
     if (v.phase === 'lobby') updLobby(v);
-    if (v.phase === 'grading' && v.active) { updGrading(v); if (v.startsAt > now()) countdown(v); }
+    if (v.phase === 'grading') { updGrading(v); if (v.startsAt > now()) countdown(v); }
   }
   function tick() {
     fetch('/api/screen').then(function (r) { return r.json(); }).then(apply).catch(function () {});

@@ -23,7 +23,7 @@ const fresh = () => ({
   students: {},            // mssv -> {mssv,name,cls,group,token,joinedAt}
   ratings: [],             // {key, mssv, scores, total, at}
   sessionClass: null,      // mỗi buổi chấm chỉ dành cho một lớp
-  activeKey: null,
+  activeKey: null,         // (không còn dùng: một phòng chấm chung)
   open: false,
   startsAt: 0,           // mốc bắt đầu chấm (sau đếm ngược 5 giây)
   showLive: true,
@@ -124,15 +124,14 @@ function rebuildGroups() {
 // ---------- API sinh viên ----------
 function studentView(st) {
   const v = { now: Date.now(), phase: S.phase, me: { name: st.name, mssv: st.mssv, cls: st.cls, group: st.group }, joined: Object.keys(S.students).length };
-  const g = groupByKey(S.activeKey);
-  if ((S.phase === 'grading') && g) {
-    const own = sameGroup(st, g);
-    v.active = {
-      key: g.key, order: g.order, form: g.form, formLabel: formLabel(g.form), open: S.open, own, startsAt: S.startsAt,
-      n: S.ratings.filter((r) => r.key === g.key).length, eligible: eligibleCount(g),
-      submitted: S.ratings.some((r) => r.key === g.key && r.mssv === st.mssv),
-      criteria: own ? [] : RUBRICS[g.form].criteria,
-    };
+  if (S.phase === 'grading') {
+    const mine = Object.fromEntries(S.ratings.filter((r) => r.mssv === st.mssv).map((r) => [r.key, r]));
+    const groups = S.groups.filter((g) => g.form).sort((a, b) => a.group - b.group).map((g) => {
+      const own = sameGroup(st, g), m = mine[g.key];
+      return { key: g.key, cls: g.cls, group: g.group, form: g.form, formLabel: formLabel(g.form), own,
+        criteria: own ? [] : RUBRICS[g.form].criteria, mine: m ? { scores: m.scores, total: m.total } : null };
+    });
+    v.room = { open: S.open, startsAt: S.startsAt, groups, done: groups.filter((g) => g.mine).length, need: groups.filter((g) => !g.own).length };
   }
   if (S.phase === 'ended') {
     const mine = S.groups.find((x) => sameGroup(st, x));
@@ -167,13 +166,13 @@ async function apiJoin(req, res) {
 async function apiRate(req, res) {
   const st = studentFromReq(req);
   if (!st) return fail(res, 401, 'Phiên không hợp lệ. Vui lòng vào lại từ mã QR.');
-  const g = groupByKey(S.activeKey);
-  if (S.phase !== 'grading' || !g) return fail(res, 409, 'Hiện chưa có phần trình bày nào đang chấm.');
-  if (Date.now() < S.startsAt) return fail(res, 409, 'Chưa đến giờ chấm, vui lòng chờ đếm ngược xong.');
-  if (!S.open) return fail(res, 409, 'Giảng viên đã đóng chấm phần trình bày này.');
-  if (sameGroup(st, g)) return fail(res, 403, 'Bạn không được chấm điểm nhóm của mình.');
-  if (S.ratings.some((r) => r.key === g.key && r.mssv === st.mssv)) return fail(res, 409, 'Bạn đã gửi điểm cho nhóm này rồi, không thể sửa.');
   const b = await readJson(req);
+  const g = groupByKey(b.key);
+  if (S.phase !== 'grading') return fail(res, 409, 'Phòng chấm hiện chưa mở.');
+  if (!g || !g.form) return fail(res, 400, 'Không tìm thấy nhóm cần chấm.');
+  if (Date.now() < S.startsAt) return fail(res, 409, 'Chưa đến giờ chấm, vui lòng chờ đếm ngược xong.');
+  if (!S.open) return fail(res, 409, 'Giảng viên đã đóng phòng chấm.');
+  if (sameGroup(st, g)) return fail(res, 403, 'Bạn không được chấm điểm nhóm của mình.');
   const crit = RUBRICS[g.form].criteria;
   const scores = {}; let total = 0;
   for (const c of crit) {
@@ -181,7 +180,9 @@ async function apiRate(req, res) {
     if (!Number.isFinite(v) || v < 0 || v > 10 || Math.round(v * 2) !== v * 2) return fail(res, 400, 'Điểm không hợp lệ (0 đến 10, bước 0.5).');
     scores[c.id] = v; total += v * c.weight / 100;
   }
-  S.ratings.push({ key: g.key, mssv: st.mssv, scores, total: r2(total), at: Date.now() });
+  const old = S.ratings.find((r) => r.key === g.key && r.mssv === st.mssv);   // được sửa đến khi giảng viên đóng phòng
+  if (old) { old.scores = scores; old.total = r2(total); old.at = Date.now(); }
+  else S.ratings.push({ key: g.key, mssv: st.mssv, scores, total: r2(total), at: Date.now() });
   save();
   send(res, 200, { ok: true });
 }
@@ -196,17 +197,12 @@ function screenView() {
     v.total = R().length;   // chỉ là số lượng, không lộ thông tin cá nhân
     v.classes = [...new Set(R().map((r) => r.cls))].map((c) => ({ cls: c, total: R().filter((r) => r.cls === c).length, joined: Object.values(S.students).filter((st) => st.cls === c).length }));
   }
-  const g = groupByKey(S.activeKey);
-  if (S.phase === 'grading' && g) {
-    const s = statsFor(g.key);
-    v.active = Object.assign(publicGroup(g), { open: S.open, n: s.n, eligible: eligibleCount(g),
-      criteria: RUBRICS[g.form].criteria.map((c) => ({ id: c.id, name: c.name, weight: c.weight, avg: S.showLive ? s.avgs[c.id] : null })),
-      total: S.showLive ? s.total : null });
-    if (S.showLive) {
-      const rs = S.ratings.filter((r) => r.key === g.key);
-      v.active.hist = Array.from({ length: 10 }, (_, i) => rs.filter((r) => Math.min(9, Math.floor(r.total)) === i).length);
-      v.active.feed = rs.slice(-6).map((r, i) => ({ seq: rs.length - Math.min(6, rs.length) + i + 1, total: r.total }));
-    }
+  if (S.phase === 'grading') {
+    v.open = S.open;
+    v.groups = S.groups.filter((g) => g.form).sort((a, b) => a.group - b.group).map((g) => { const st = statsFor(g.key);
+      return Object.assign(publicGroup(g), { n: st.n, eligible: eligibleCount(g), total: S.showLive ? st.total : null }); });
+    const stu = Object.values(S.students);
+    v.finished = stu.filter((x) => v.groups.filter((g) => !sameGroup(x, g)).every((g) => S.ratings.some((r) => r.key === g.key && r.mssv === x.mssv))).length;
   }
   if (S.phase === 'ended') {
     v.results = S.groups.filter((x) => x.order).sort((a, b) => a.order - b.order).map((x) => Object.assign(publicGroup(x), statsFor(x.key)));
@@ -222,11 +218,10 @@ function adminView() {
   const classes = [...new Set(S.roster.map((r) => r.cls))].map((c) => ({ cls: c, count: S.roster.filter((r) => r.cls === c).length }));
   const v = { now: Date.now(), startsAt: S.startsAt, phase: S.phase, activeKey: S.activeKey, open: S.open, showLive: S.showLive, classes, groups,
     sessionClass: S.sessionClass, joined: Object.keys(S.students).length, total: R().length, forms: Object.fromEntries(Object.entries(RUBRICS).map(([k, f]) => [k, { label: f.label, criteria: f.criteria }])) };
-  const g = groupByKey(S.activeKey);
-  if (g) {
-    v.pending = Object.values(S.students).filter((st) => !sameGroup(st, g) && !S.ratings.some((r) => r.key === g.key && r.mssv === st.mssv))
-      .map((st) => ({ mssv: st.mssv, name: st.name, cls: st.cls })).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-  }
+  const gs = S.groups.filter((g) => g.form);
+  v.pending = Object.values(S.students).map((st) => { const need = gs.filter((g) => !sameGroup(st, g)).length, done = S.ratings.filter((r) => r.mssv === st.mssv).length; return { mssv: st.mssv, name: st.name, cls: st.cls, left: need - done }; })
+    .filter((p) => p.left > 0).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  v.finished = Object.keys(S.students).length - v.pending.length;
   v.notJoined = R().filter((r) => !S.students[r.mssv]).length;
   return v;
 }
@@ -321,18 +316,13 @@ async function apiAdmin(req, res, url) {
     if (!S.groups.length) { S.sessionClass = null; rebuildGroups(); return fail(res, 400, 'Lớp này chưa có nhóm nào.'); }
     S.phase = 'lobby'; save(); return send(res, 200, { ok: true });
   }
-  if (p === '/api/admin/start') {  // kích hoạt chấm và/hoặc chuyển sang nhóm khác
-    const g = groupByKey(b.key);
-    if (!g) return fail(res, 400, 'Chọn nhóm cần chấm.');
-    if (S.phase !== 'lobby' && S.phase !== 'grading') return fail(res, 409, 'Chưa thể bắt đầu chấm.');
-    // hình thức được chọn ngay lúc nhóm trình bày; đã có điểm thì không đổi để rubric không bị lệch
-    if (b.form && RUBRICS[b.form] && b.form !== g.form) {
-      if (S.ratings.some((r) => r.key === g.key)) return fail(res, 409, 'Nhóm này đã có điểm, không đổi hình thức được.');
-      g.form = b.form;
-    }
-    if (!g.form) return fail(res, 400, 'Hãy chọn hình thức dự án của nhóm này trước khi bắt đầu chấm.');
-    if (!g.order) g.order = Math.max(0, ...S.groups.map((x) => x.order || 0)) + 1;
-    S.phase = 'grading'; S.activeKey = g.key; S.open = true; S.startsAt = Date.now() + 5000; save(); return send(res, 200, { ok: true });
+  if (p === '/api/admin/start') {  // mở phòng chấm chung: mọi nhóm được chấm cùng lúc
+    if (S.phase !== 'lobby') return fail(res, 409, 'Chưa thể mở phòng chấm.');
+    if (!S.groups.length) return fail(res, 400, 'Lớp này chưa có nhóm nào.');
+    const miss = S.groups.filter((g) => !g.form);
+    if (miss.length) return fail(res, 400, 'Hãy chọn hình thức dự án cho tất cả các nhóm trước khi mở phòng chấm (còn thiếu: ' + miss.map((g) => 'Nhóm ' + g.group).join(', ') + ').');
+    S.groups.slice().sort((a, b) => a.group - b.group).forEach((g, i) => { g.order = i + 1; });
+    S.phase = 'grading'; S.activeKey = null; S.open = true; S.startsAt = Date.now() + 5000; save(); return send(res, 200, { ok: true });
   }
   if (p === '/api/admin/toggle') {
     if (S.phase !== 'grading') return fail(res, 409, 'Chưa kích hoạt chấm.');
@@ -346,11 +336,11 @@ async function apiAdmin(req, res, url) {
     S.ratings = S.ratings.filter((r) => r.key !== g.key);
     save(); return send(res, 200, { ok: true, removed: before - S.ratings.length });
   }
-  if (p === '/api/admin/back') {   // hủy nhóm đang chấm, quay về phòng chờ để chọn lại nhóm
+  if (p === '/api/admin/back') {   // đóng phòng chấm, quay về phòng chờ (chưa có điểm mới được đổi hình thức)
     if (S.phase !== 'grading') return fail(res, 409, 'Chưa ở trạng thái chấm.');
-    const g = groupByKey(S.activeKey);
-    if (g && !S.ratings.some((r) => r.key === g.key)) g.order = 0;   // chưa có điểm thì coi như chưa trình bày
-    S.phase = 'lobby'; S.activeKey = null; S.open = false; S.startsAt = 0; save(); return send(res, 200, { ok: true });
+    S.phase = 'lobby'; S.activeKey = null; S.open = false; S.startsAt = 0;
+    S.groups.forEach((g) => { if (!S.ratings.some((r) => r.key === g.key)) g.order = null; });
+    save(); return send(res, 200, { ok: true });
   }
   if (p === '/api/admin/unlobby') {   // đóng phòng chờ, quay về bước chuẩn bị (đổi lớp, tải lại danh sách)
     if (S.phase !== 'lobby') return fail(res, 409, 'Chỉ quay lại được khi đang ở phòng chờ.');

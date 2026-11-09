@@ -17,8 +17,7 @@
 (function () {
   var app = document.getElementById('app');
   var token = null; try { token = localStorage.getItem('cd_token'); } catch (e) {}
-  var gParam = null, gDone = false; try { gParam = new URLSearchParams(location.search).get('g'); } catch (e) {}
-  var view = null, lastSig = '', scores = {}, step = 0, offset = 0, timer = null, cdTimer = null;
+  var view = null, lastSig = '', scores = {}, step = 0, offset = 0, timer = null, cdTimer = null, curKey = null, cdShown = 0;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function api(path, opt) {
@@ -49,15 +48,13 @@
   function waiting(icon, title, text, extra) {
     app.innerHTML = '<div class="card center anim-up" style="padding:28px 18px"><div class="emoji-float">' + icon + '</div><h1 style="margin-top:8px">' + title + '</h1><p class="muted">' + text + '</p>' + (extra || '') + '</div>' + who();
   }
-  function liveProgress(a) {
-    var pct = a.eligible ? Math.round(a.n / a.eligible * 100) : 0;
-    return '<div style="margin-top:16px"><div class="progress"><i id="pbar" style="width:' + pct + '%"></i></div><p class="muted small" style="margin:8px 0 0">Đã có <b id="pn">' + a.n + '</b> / <span id="pe">' + a.eligible + '</span> bạn chấm xong</p></div>';
-  }
+  function curGroup() { var r = view && view.room; if (!r || !curKey) return null; return r.groups.filter(function (g) { return g.key === curKey; })[0] || null; }
+  function pbar(r) { var pct = r.need ? Math.round(r.done / r.need * 100) : 0; return '<div class="progress"><i id="pbar" style="width:' + pct + '%"></i></div><p class="muted small" style="margin:8px 0 0">Bạn đã chấm <b id="pn">' + r.done + '</b> / <span id="pe">' + r.need + '</span> nhóm</p>'; }
 
   // ---------- đếm ngược ----------
   function countdown(a) {
     var ov = document.createElement('div'); ov.className = 'cd-overlay'; ov.id = 'cd';
-    ov.innerHTML = '<div style="font-size:20px;opacity:.85;margin-bottom:6px">Phần trình bày thứ ' + esc(a.order) + ' · ' + esc(a.formLabel) + '</div><div style="font-size:26px;font-weight:700;margin-bottom:10px">Chuẩn bị chấm điểm</div><div class="cd-num" id="cdn"></div>';
+    ov.innerHTML = '<div style="font-size:26px;font-weight:700;margin-bottom:10px">Phòng chấm sắp mở</div><div class="cd-num" id="cdn"></div>';
     document.body.appendChild(ov);
     var shown = null;
     function tick() {
@@ -71,8 +68,8 @@
   // ---------- chấm điểm từng tiêu chí ----------
   function dots(n) { var h = '<div class="dots">'; for (var i = 0; i <= n; i++) h += '<i class="' + (i < step ? 'on' : '') + (i === step ? ' cur' : '') + '"></i>'; return h + '</div>'; }
   function gradeScreen() {
-    var a = view.active, crit = a.criteria, n = crit.length;
-    var head = '<div class="row" style="justify-content:center;margin-bottom:10px"><span class="tag">Phần trình bày thứ ' + esc(a.order) + '</span><span class="tag warn">' + esc(a.formLabel) + '</span></div>' + dots(n);
+    var a = curGroup(), crit = a.criteria, n = crit.length;
+    var head = '<div class="row" style="justify-content:center;margin-bottom:10px"><span class="tag">Nhóm ' + esc(a.group) + '</span><span class="tag warn">' + esc(a.formLabel) + '</span></div>' + dots(n);
     if (step >= n) return reviewScreen(head);
     var c = crit[step], v = scores[c.id];
     var html = head + '<div class="card anim-in" id="stepcard"><div class="row" style="justify-content:space-between"><span class="small muted">Tiêu chí ' + (step + 1) + '/' + n + '</span><span class="tag">Trọng số ' + c.weight + '%</span></div>' +
@@ -80,8 +77,9 @@
       '<div class="bigval' + (v == null ? '' : ' set') + '" id="bv">' + (v == null ? '–' : v.toFixed(1)) + '</div><div class="band" id="bd">' + band(v) + '</div>' +
       '<div class="row" style="flex-wrap:nowrap;gap:12px"><button class="ghost step-btn" id="dn" aria-label="Giảm">−</button><input class="rng" id="rg" type="range" min="0" max="10" step="0.5" value="' + (v == null ? 5 : v) + '" style="--p:' + ((v == null ? 5 : v) * 10) + '%"><button class="ghost step-btn" id="up" aria-label="Tăng">+</button></div>' +
       '<div class="chips" id="chips">' + [5, 6, 7, 8, 9, 10].map(function (x) { return '<button data-v="' + x + '"' + (v === x ? ' class="on"' : '') + '>' + x + '</button>'; }).join('') + '</div>' +
-      '<div class="nav">' + (step > 0 ? '<button class="ghost" id="bk">Quay lại</button>' : '') + '<button class="accent" id="nx"' + (v == null ? ' disabled' : '') + '>' + (step === n - 1 ? 'Xem lại và gửi' : 'Tiếp tục') + '</button></div></div>' + who();
+      '<div class="nav">' + (step > 0 ? '<button class="ghost" id="bk">Quay lại</button>' : '') + '<button class="accent" id="nx"' + (v == null ? ' disabled' : '') + '>' + (step === n - 1 ? 'Xem lại và gửi' : 'Tiếp tục') + '</button></div></div><div class="center" style="margin-top:10px"><button class="ghost" id="tolist" style="font-size:14px;padding:8px 16px">← Về danh sách nhóm</button></div>' + who();
     app.innerHTML = html;
+    document.getElementById('tolist').onclick = function () { curKey = null; scores = {}; step = 0; lastSig = ''; render(true); };
     function set(val) {
       val = Math.max(0, Math.min(10, Math.round(val * 2) / 2)); scores[c.id] = val;
       var bv = document.getElementById('bv'); bv.textContent = val.toFixed(1); bv.className = 'bigval set';
@@ -98,20 +96,21 @@
   }
   function totalOf(crit) { var t = 0; crit.forEach(function (c) { t += (scores[c.id] || 0) * c.weight / 100; }); return t; }
   function reviewScreen(head) {
-    var crit = view.active.criteria;
-    var html = head + '<div class="card anim-in"><h1>Xem lại điểm của bạn</h1><p class="muted small">Bấm vào một dòng để sửa. Gửi rồi sẽ không sửa được.</p>' +
+    var crit = curGroup().criteria;
+    var html = head + '<div class="card anim-in"><h1>Xem lại điểm của bạn</h1><p class="muted small">Bấm vào một dòng để sửa. Sau khi gửi, bạn vẫn sửa lại được đến khi giảng viên đóng phòng chấm.</p>' +
       crit.map(function (c, i) { return '<div class="rev" data-i="' + i + '"><span>' + esc(c.name) + ' <span class="muted small">(' + c.weight + '%)</span></span><b>' + scores[c.id].toFixed(1) + '</b></div>'; }).join('') +
       '<div class="center" style="margin-top:14px"><div class="muted small">Điểm tổng của bạn</div><div class="bigval set" id="tot">' + totalOf(crit).toFixed(2) + '</div><div class="muted small">/ 10</div></div>' +
       '<div class="err" id="serr" style="display:none"></div>' +
-      '<div class="nav"><button class="ghost" id="bk">Quay lại</button><button class="accent" id="send">Gửi điểm</button></div></div>' + who();
+      '<div class="nav"><button class="ghost" id="bk">Quay lại</button><button class="accent" id="send">' + (curGroup().mine ? 'Cập nhật điểm' : 'Gửi điểm') + '</button></div></div>' + who();
     app.innerHTML = html;
     document.querySelectorAll('.rev').forEach(function (r) { r.onclick = function () { step = parseInt(r.getAttribute('data-i'), 10); gradeScreen(); }; });
     document.getElementById('bk').onclick = function () { step = crit.length - 1; gradeScreen(); };
     document.getElementById('send').onclick = function () {
       var b = this; b.disabled = true; b.textContent = 'Đang gửi...';
-      api('/api/rate', { method: 'POST', body: JSON.stringify({ scores: scores }) })
-        .then(function () { var t = totalOf(crit); scores = {}; step = 0; buzz([40, 40, 80]); return poll().then(function () { confetti(); }); })
-        .catch(function (e) { b.disabled = false; b.textContent = 'Gửi điểm'; var er = document.getElementById('serr'); er.style.display = 'block'; er.textContent = e.message; });
+      var lbl = curGroup().mine ? 'Cập nhật điểm' : 'Gửi điểm';
+      api('/api/rate', { method: 'POST', body: JSON.stringify({ key: curKey, scores: scores }) })
+        .then(function () { scores = {}; step = 0; curKey = null; lastSig = ''; buzz([40, 40, 80]); return poll().then(function () { confetti(); }); })
+        .catch(function (e) { b.disabled = false; b.textContent = lbl; var er = document.getElementById('serr'); er.style.display = 'block'; er.textContent = e.message; });
     };
   }
   function confetti() {
@@ -127,7 +126,7 @@
   function setView(j) { view = j; if (j.now) offset = j.now - Date.now(); var lo = document.getElementById('lo'); if (lo) lo.style.display = 'block'; }
   function logout() {
     if (!confirm('Đăng xuất khỏi phòng chấm? Các điểm đã gửi vẫn được giữ. Bạn chỉ cần nhập lại họ tên và MSSV để vào lại.')) return;
-    stopPolling(); clearInterval(cdTimer); token = null; view = null; lastSig = ''; scores = {}; step = 0; gParam = null; gDone = true;
+    stopPolling(); clearInterval(cdTimer); token = null; view = null; lastSig = ''; scores = {}; step = 0; curKey = null;
     try { localStorage.removeItem('cd_token'); } catch (e) {}
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
     var lo = document.getElementById('lo'); if (lo) lo.style.display = 'none';
@@ -137,34 +136,20 @@
   document.getElementById('logout').onclick = logout;
   function render(force) {
     if (!view) return;
-    var a = view.active, counting = a && a.startsAt && now() < a.startsAt;
-    // QR của một nhóm: chỉ kiểm tra lần đầu, nếu không đúng nhóm đang chấm thì báo ngay
-    if (gParam && !gDone && view.phase === 'grading' && a) {
-      if (a.key === gParam) gDone = true;
-      else {
-        if (lastSig === 'gwarn' && !force) return;
-        lastSig = 'gwarn';
-        app.innerHTML = '<div class="card center anim-up" style="padding:26px 18px"><div class="emoji-float">⚠️</div><h1 style="margin-top:8px">Mã QR này không phải nhóm đang chấm</h1><p class="muted">Bạn vừa quét mã QR của một nhóm khác. Hiện đang chấm <b>phần trình bày thứ ' + esc(a.order) + '</b> (' + esc(a.formLabel) + '). Hãy nhìn lên màn hình chiếu để xác nhận.</p><button id="gok" style="margin-top:12px">Chấm phần trình bày đang diễn ra</button></div>' + who();
-        document.getElementById('gok').onclick = function () { gDone = true; render(true); };
-        return;
-      }
-    }
-    if (gParam && !gDone && view.phase === 'ended') gDone = true;
-    var sig = [view.phase, a ? a.key + '|' + a.open + '|' + a.submitted + '|' + a.own + '|' + (counting ? 'cd' : '') : '', view.result ? 'r' : ''].join('~');
+    var r0 = view.room, counting = r0 && r0.startsAt && now() < r0.startsAt;
+    var sig = [view.phase, r0 ? r0.open + '|' + curKey + '|' + (counting ? 'cd' : '') + '|' + r0.groups.map(function (g) { return g.key + (g.mine ? g.mine.total : '-'); }).join(',') : '', view.result ? 'r' : ''].join('~');
     if (!force && sig === lastSig) { liveUpdate(); return; }
     lastSig = sig;
     var old = document.getElementById('cd'); if (old && !counting) { old.remove(); clearInterval(cdTimer); cdTimer = null; }
     if (view.phase === 'lobby') {
       app.innerHTML = '<div class="card center anim-up" style="padding:28px 18px">' + DOODLE() + '<h1 style="margin-top:8px">Đã ghi nhận!</h1><p>Xin chào <b>' + esc(view.me.name) + '</b></p>' +
-        '<div class="notice"><b>⚠️ Lưu ý quan trọng</b><br>Bạn thuộc <b>Nhóm ' + esc(view.me.group) + '</b> (lớp ' + esc(view.me.cls) + '). Khi nhóm bạn trình bày, bạn <b>không được chấm điểm</b> vì đó là bài dự thi của chính bạn. Các nhóm khác bạn chấm bình thường.</div>' +
+        '<div class="notice"><b>⚠️ Lưu ý quan trọng</b><br>Bạn thuộc <b>Nhóm ' + esc(view.me.group) + '</b> (lớp ' + esc(view.me.cls) + '). Bạn <b>không được chấm điểm nhóm của mình</b> vì đó là bài dự thi của chính bạn. Tất cả các nhóm còn lại bạn chấm trong cùng một phòng chấm.</div>' +
         '<p class="muted"><span class="pulse"></span>Vui lòng chờ giảng viên bắt đầu chấm</p><div style="margin-top:14px"><div class="muted small">Đã có</div><div class="bigval set" id="cnt" style="font-size:64px">' + view.joined + '</div><div class="muted small">bạn trong phòng</div></div></div>' + who();
     } else if (view.phase === 'grading') {
-      if (!a) return waiting('⏳', 'Vui lòng chờ', 'Giảng viên đang chuẩn bị phần trình bày tiếp theo.');
-      if (counting) { if (a.own) { waiting('🎤', 'Đến lượt nhóm bạn', 'Bạn không chấm nhóm của mình. Chúc cả nhóm trình bày thật tốt!'); } else { app.innerHTML = ''; } return countdown(a); }
-      if (a.own) return waiting('🎤', 'Đến lượt nhóm bạn', 'Bạn không chấm nhóm của mình. Hãy tập trung trình bày thật tốt!');
-      if (a.submitted) return waiting('✅', 'Đã gửi điểm', 'Cảm ơn bạn. Vui lòng chờ phần trình bày tiếp theo.', liveProgress(a));
-      if (!a.open) return waiting('🔒', 'Đã đóng chấm', 'Giảng viên đã đóng chấm phần trình bày này. Vui lòng chờ phần tiếp theo.');
-      step = 0; gradeScreen();
+      if (!r0) return waiting('⏳', 'Vui lòng chờ', 'Phòng chấm đang được chuẩn bị.');
+      if (counting) { app.innerHTML = ''; return countdown(r0); }
+      if (curKey && curGroup() && r0.open) { step = 0; scores = Object.assign({}, curGroup().mine ? curGroup().mine.scores : {}); if (curGroup().mine) step = 0; return gradeScreen(); }
+      curKey = null; roomList();
     } else if (view.phase === 'ended') {
       var r = view.result;
       if (r && r.total != null) {
@@ -175,10 +160,21 @@
       } else waiting('🎉', 'Buổi chấm đã kết thúc', 'Cảm ơn bạn đã tham gia đánh giá.');
     } else waiting('⏳', 'Chưa mở phòng chấm', 'Vui lòng chờ giảng viên.');
   }
+  function roomList() {
+    var r = view.room, h = '<div class="hero anim-up" style="padding-bottom:6px"><h1>Phòng chấm</h1><p class="muted" style="margin:6px 0 0">' + (r.open ? 'Chọn một nhóm để chấm. Bạn chấm theo thứ tự nào cũng được và sửa lại được đến khi giảng viên đóng phòng.' : '🔒 Giảng viên đã đóng phòng chấm. Điểm của bạn đã được ghi nhận.') + '</p></div>' +
+      '<div class="card" style="padding:14px 16px">' + pbar(r) + '</div>';
+    r.groups.forEach(function (g) {
+      var state = g.own ? '<span class="tag">Nhóm của bạn</span>' : (g.mine ? '<span class="tag ok">Đã chấm · ' + g.mine.total.toFixed(2) + '</span>' : '<span class="tag bad">Chưa chấm</span>');
+      var btn = g.own ? '<p class="muted small" style="margin:8px 0 0">Bạn không chấm nhóm của mình.</p>' : (r.open ? '<button class="' + (g.mine ? 'ghost' : 'accent') + ' full gopen" data-k="' + esc(g.key) + '" style="margin-top:10px">' + (g.mine ? 'Sửa điểm' : 'Chấm nhóm này') + '</button>' : '');
+      h += '<div class="card anim-up"' + (g.own ? ' style="opacity:.7"' : '') + '><div class="row" style="justify-content:space-between"><b style="font-size:20px">Nhóm ' + esc(g.group) + '</b><span class="tag warn">' + esc(g.formLabel) + '</span></div><div style="margin-top:6px">' + state + '</div>' + btn + '</div>';
+    });
+    app.innerHTML = h + who();
+    document.querySelectorAll('.gopen').forEach(function (b) { b.onclick = function () { curKey = b.getAttribute('data-k'); lastSig = ''; render(true); window.scrollTo(0, 0); }; });
+  }
   function liveUpdate() {
     var c = document.getElementById('cnt'); if (c) c.textContent = view.joined;
-    var a = view.active, pb = document.getElementById('pbar');
-    if (a && pb) { pb.style.width = (a.eligible ? Math.round(a.n / a.eligible * 100) : 0) + '%'; document.getElementById('pn').textContent = a.n; document.getElementById('pe').textContent = a.eligible; }
+    var r = view.room, pb = document.getElementById('pbar');
+    if (r && pb) { pb.style.width = (r.need ? Math.round(r.done / r.need * 100) : 0) + '%'; document.getElementById('pn').textContent = r.done; document.getElementById('pe').textContent = r.need; }
   }
   function countUp(el, to) { var t0 = performance.now(); (function f(t) { var p = Math.min(1, (t - t0) / 1200); el.textContent = (to * (1 - Math.pow(1 - p, 3))).toFixed(2); if (p < 1) requestAnimationFrame(f); })(t0); }
 

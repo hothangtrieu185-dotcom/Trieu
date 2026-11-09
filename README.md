@@ -5,16 +5,16 @@ Ba trang:
 - `/admin` : giảng viên điều khiển (cần mật khẩu)
 - `/screen` : màn hình chiếu, hiện QR, số người vào phòng, điểm trực tiếp, kết quả
 
-## Quy trình buổi chấm
-1. Vào `/admin`, đăng nhập. Tải 2 file bảng điểm lớp (.xlsx). Chọn hình thức (Workshop / Video / Fanpage Facebook) cho từng nhóm. Bấm "Tạo mã QR và mở phòng chờ".
+## Quy trình buổi chấm (một phòng chấm chung)
+1. Vào `/admin`, đăng nhập. Tải file bảng điểm lớp (.xlsx). Bấm "Tạo mã QR và mở phòng chờ".
 2. Mở `/screen` trên máy chiếu. Sinh viên quét QR, nhập họ tên và MSSV, vào màn hình chờ.
-3. Khi đủ người, chọn phần trình bày đầu tiên và bấm "Kích hoạt hệ thống chấm".
-4. Sinh viên (trừ nhóm đang trình bày) thấy bảng chấm đúng hình thức. Màn hình chiếu hiện điểm trực tiếp. Có nút đóng/mở chấm và chuyển nhóm.
-5. Bấm "Kết thúc buổi chấm": từng nhóm thấy điểm tổng trên điện thoại, anh tải báo cáo Excel.
+3. Ở phòng chờ, chọn hình thức (Workshop / Video / Fanpage Facebook) cho TẤT CẢ các nhóm, rồi bấm "Mở phòng chấm".
+4. Cả lớp cùng ở trong một phòng chấm: mỗi sinh viên thấy danh sách các nhóm khác (không có nhóm của mình), chấm nhóm nào trước cũng được, sửa điểm được đến khi giảng viên đóng phòng. Màn hình chiếu hiện điểm trực tiếp của từng nhóm.
+5. Bấm "Đóng phòng chấm" khi xong, rồi "Kết thúc buổi chấm": từng nhóm thấy điểm tổng trên điện thoại, anh tải báo cáo Excel.
 
 ## Quy tắc
 - MSSV phải có trong danh sách lớp và họ tên phải khớp (không phân biệt hoa thường, dấu).
-- Sinh viên không chấm được nhóm của mình. Gửi rồi không sửa được.
+- Sinh viên không chấm được nhóm của mình. Sửa điểm được đến khi giảng viên đóng phòng chấm.
 - Điểm tổng mỗi lượt = trung bình có trọng số (thang 10). Điểm nhóm = trung bình các lượt chấm.
 - Tên và MSSV người chấm chỉ có trong báo cáo Excel của giảng viên. Màn hình chiếu và các nhóm không thấy.
 - Rubric nằm trong `rubrics.js`.
