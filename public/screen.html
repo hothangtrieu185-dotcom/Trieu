@@ -9,6 +9,29 @@
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/theme.css">
 <script src="/doodle.js"></script>
+<style>
+.lb-bub i{background:#fff!important;border:2px solid #264f3e;font-size:calc(var(--bs)*.62)!important;line-height:1;box-shadow:0 .4vh 0 rgba(38,79,62,.25)}
+.gg{display:grid;gap:1.8vh 1.4vw;margin-top:2vh;grid-template-columns:repeat(auto-fit,minmax(var(--tw,24vw),1fr))}
+.gtile{position:relative;text-align:center;padding:1.4vh 1.2vw!important;transition:box-shadow .4s,transform .4s;overflow:hidden}
+.gtile.lead{box-shadow:0 0 0 .6vh #e0a526,0 1.4vh 3vh rgba(224,165,38,.35)}
+.gt-top{display:flex;justify-content:space-between;align-items:center;font-size:2.1vh;font-weight:700}
+.gt-rank{background:#264f3e;color:#fff;border-radius:99px;padding:.2vh 1vw;font-weight:800}
+.gtile.lead .gt-rank{background:#e0a526;color:#3a2a00}
+.gt-form{background:#f1ece0;border-radius:99px;padding:.3vh 1vw}
+.gt-name{font-size:3.4vh;font-weight:800;margin:.6vh 0 .2vh;white-space:nowrap}
+.gt-ring{position:relative;width:var(--rs,14vh);height:var(--rs,14vh);margin:.6vh auto}
+.gt-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.gt-ring .trk{stroke:#e9e4d6}.gt-ring .val{stroke:#8f1a38;transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1),stroke .4s}
+.gtile.lead .gt-ring .val{stroke:#e0a526}
+.gt-ring .gt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(var(--rs,14vh)*.34);font-weight:900;font-variant-numeric:tabular-nums}
+.gt-crown{display:inline-block;max-width:0;opacity:0;overflow:hidden;vertical-align:middle;transform:scale(0);transition:all .5s cubic-bezier(.3,1.6,.5,1)}
+.gtile.lead .gt-crown{max-width:6vh;opacity:1;margin-right:.6vh;transform:scale(1)}
+.gt-sub{font-size:2vh;opacity:.8;margin-top:.6vh}
+.tick{margin-top:1.4vh;text-align:center;font-size:2.6vh;font-weight:700;min-height:4vh;color:#264f3e;transition:opacity .4s}
+.tmrbar{height:1vh;border-radius:99px;background:#e9e4d6;overflow:hidden;margin-top:.8vh}.tmrbar i{display:block;height:100%;background:linear-gradient(90deg,#8f1a38,#b5405a);transition:width .5s linear}
+@keyframes tpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.tmr-hot{animation:tpulse 1s ease-in-out infinite}
+</style>
 </head>
 <body class="screen">
 <div class="panel" id="app"></div>
@@ -85,14 +108,22 @@
     clearInterval(lb.tipTimer); var tp = $('ltip'); tp.textContent = TIPS[0];
     lb.tipTimer = setInterval(function () { var t = $('ltip'); if (!t) { clearInterval(lb.tipTimer); return; } t.style.opacity = 0; setTimeout(function () { lb.tip = (lb.tip + 1) % TIPS.length; t.textContent = TIPS[lb.tip]; t.style.opacity = ''; }, 400); }, 6000);
   }
+  var PREV = { lead: null, n: {}, ready: false, order: '' }, TICK = null, FORM_ICON = { workshop: '🛠️', video: '🎬', fanpage: '📣' };
   function buildGrading(v) {
-    app.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2vw;flex-wrap:wrap"><div><div style="font-size:3vh;opacity:.8">Phòng chấm chung</div><div style="font-size:5vh;font-weight:800;margin:.4vh 0">Tất cả các nhóm cùng được chấm</div></div>' +
-      '<div style="display:flex;align-items:center;gap:1.6vw"><div style="text-align:center;padding:0 1vw"><div style="font-size:2vh;opacity:.75">Thời gian còn lại</div><div id="tmr" style="font-size:9vh;font-weight:900;line-height:1;font-variant-numeric:tabular-nums">--:--</div></div><div style="text-align:right"><div style="font-size:2.8vh" id="status"></div><div style="font-size:2.2vh;opacity:.75;margin-top:.8vh">Đã chấm xong tất cả: <b id="fin">0</b> / <span id="tj">0</span> bạn</div><div class="bar" style="margin-top:6px"><i id="fbar" style="width:0%"></i></div></div>' +
-      '<div class="qrsm"><img src="/qr.svg" alt="QR" style="height:15vh;width:15vh;display:block"><i class="scan"></i><i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i></div></div></div>' +
-      '<div id="gg" style="display:grid;gap:2vh 1.6vw;margin-top:3vh;grid-template-columns:repeat(auto-fit,minmax(24vw,1fr))">' + v.groups.map(function (g) {
-        return '<div class="card-s gtile" data-k="' + esc(g.key) + '" style="text-align:center"><div style="font-size:3.2vh;font-weight:800">Nhóm ' + g.group + '</div><div style="font-size:2.2vh;opacity:.75;margin:.4vh 0 1.2vh">' + esc(g.formLabel) + '</div>' +
-          '<div style="font-size:8vh;font-weight:900;line-height:1" class="gt">—</div><div style="font-size:2.2vh;opacity:.75;margin-top:1vh"><b class="gn">0</b> / <span class="ge">0</span> lượt chấm</div><div class="bar" style="margin-top:6px"><i class="gb" style="width:0%"></i></div></div>';
-      }).join('') + '</div><p id="hide" style="display:none;margin-top:4vh;font-size:2.6vh;opacity:.75;text-align:center">Điểm sẽ được công bố sau khi kết thúc buổi chấm.</p>';
+    var cnt = v.groups.length, rs = cnt <= 3 ? '16vh' : cnt <= 6 ? '11.5vh' : '9vh', tw = cnt <= 6 ? '24vw' : '18vw';
+    PREV = { lead: null, n: {}, ready: false, order: '' };
+    app.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2vw;flex-wrap:wrap"><div><div style="font-size:2.4vh;opacity:.8">Phòng chấm chung</div><div style="font-size:4vh;font-weight:800;margin:.2vh 0">Tất cả các nhóm cùng được chấm</div></div>' +
+      '<div style="display:flex;align-items:center;gap:1.6vw"><div style="text-align:center;padding:0 1vw;min-width:14vw"><div style="font-size:1.8vh;opacity:.75">⏱️ Thời gian còn lại</div><div id="tmr" style="font-size:7.5vh;font-weight:900;line-height:1;font-variant-numeric:tabular-nums">--:--</div><div class="tmrbar"><i id="tmrbar" style="width:100%"></i></div></div><div style="text-align:right"><div style="font-size:2.8vh" id="status"></div><div style="font-size:2.2vh;opacity:.75;margin-top:.8vh">Đã chấm xong tất cả: <b id="fin">0</b> / <span id="tj">0</span> bạn</div><div class="bar" style="margin-top:6px"><i id="fbar" style="width:0%"></i></div></div>' +
+      '<div class="qrsm"><img src="/qr.svg" alt="QR" style="height:12vh;width:12vh;display:block"><i class="scan"></i><i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i></div></div></div>' +
+      '<div class="gg" id="gg" style="--rs:' + rs + ';--tw:' + tw + '">' + v.groups.map(function (g, i) {
+        return '<div class="card-s gtile" data-k="' + esc(g.key) + '"><div class="gt-top"><span class="gt-rank">#' + (i + 1) + '</span><span class="gt-form">' + (FORM_ICON[g.form] || '🎯') + ' ' + esc(g.formLabel) + '</span></div>' +
+          '<div class="gt-name"><span class="gt-crown">👑</span>Nhóm ' + g.group + '</div><div class="gt-ring"><svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52" fill="none" stroke-width="11"/><circle class="val" cx="60" cy="60" r="52" fill="none" stroke-width="11" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/></svg><b class="gt">—</b></div>' +
+          '<div class="gt-sub"><b class="gn">0</b> / <span class="ge">0</span> lượt chấm</div><div class="bar" style="margin-top:6px"><i class="gb" style="width:0%"></i></div></div>';
+      }).join('') + '</div><div class="tick" id="tick"></div><p id="hide" style="display:none;margin-top:3vh;font-size:2.6vh;opacity:.75;text-align:center">Điểm sẽ được công bố sau khi kết thúc buổi chấm.</p>';
+  }
+  function tickMsg(txt) {
+    var el = $('tick'); if (!el) return; el.style.opacity = 0; clearTimeout(TICK);
+    setTimeout(function () { el.textContent = txt; el.style.opacity = 1; }, 250); TICK = setTimeout(function () { el.style.opacity = 0; }, 5200);
   }
 
   // ---------- cập nhật ----------
@@ -100,20 +131,41 @@
     var el = $('tmr'); if (!el || !last || last.phase !== 'grading') return;
     if (!last.open) { el.textContent = last.endsAt && now() >= last.endsAt ? 'Hết giờ' : '🔒'; el.style.color = ''; return; }
     if (!last.endsAt) { el.textContent = '∞'; el.style.color = ''; return; }
-    var left = Math.max(0, Math.ceil((last.endsAt - now()) / 1000));
-    el.textContent = Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2); el.style.color = left <= 60 ? '#c0392b' : '';
+    var left = Math.max(0, Math.ceil((last.endsAt - now()) / 1000)), tot = Math.max(1, (last.endsAt - last.startsAt) / 1000);
+    el.textContent = Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2); el.style.color = left <= 60 ? '#c0392b' : ''; el.classList.toggle('tmr-hot', left <= 30);
+    var tb = $('tmrbar'); if (tb) tb.style.width = Math.max(0, Math.min(100, left / tot * 100)).toFixed(1) + '%';
   }
   setInterval(tmrTick, 250);
   function updGrading(v) {
     $('status').innerHTML = v.open ? '<span class="pulse"></span>Đang mở chấm' : '🔒 Đã đóng chấm';
     $('fin').textContent = v.finished; $('tj').textContent = v.joined; $('fbar').style.width = (v.joined ? Math.round(v.finished / v.joined * 100) : 0) + '%';
-    var best = Math.max.apply(null, v.groups.map(function (g) { return g.total == null ? -1 : g.total; }));
-    v.groups.forEach(function (g) {
-      var t = document.querySelector('.gtile[data-k="' + g.key + '"]'); if (!t) return;
-      countTo(t.querySelector('.gt'), g.total, 2, 900);
+    var tot = function (g) { return g.total == null ? -1 : g.total; };
+    var ranked = v.groups.slice().sort(function (a, b) { return tot(b) - tot(a) || a.group - b.group; });
+    var best = tot(ranked[0]), leadKey = (v.showLive && best > 0) ? ranked[0].key : null;
+    // ghi vị trí cũ để làm hoạt ảnh đổi chỗ
+    var tiles = {}; document.querySelectorAll('.gtile').forEach(function (t) { tiles[t.getAttribute('data-k')] = t; });
+    var before = {}; Object.keys(tiles).forEach(function (k) { before[k] = tiles[k].getBoundingClientRect(); });
+    ranked.forEach(function (g, i) {
+      var t = tiles[g.key]; if (!t) return;
+      t.style.order = i;
+      t.querySelector('.gt-rank').textContent = v.showLive ? '#' + (i + 1) : '';
+      t.querySelector('.gt-rank').style.display = v.showLive ? '' : 'none';
+      var gt = t.querySelector('.gt'); countTo(gt, g.total, 2, 900);
+      var val = t.querySelector('.val'); val.style.strokeDashoffset = (326.7 * (1 - (g.total == null ? 0 : Math.min(10, g.total) / 10))).toFixed(1);
       t.querySelector('.gn').textContent = g.n; t.querySelector('.ge').textContent = g.eligible; t.querySelector('.gb').style.width = (g.eligible ? Math.round(g.n / g.eligible * 100) : 0) + '%';
-      t.style.outline = (g.total != null && g.total === best && best > 0) ? '0.5vh solid #e0a526' : '';
+      t.classList.toggle('lead', g.key === leadKey);
+      if (PREV.ready && g.n > (PREV.n[g.key] || 0)) { flash(gt, 'up'); tickMsg('✨ Nhóm ' + g.group + ' vừa có thêm lượt chấm (' + g.n + '/' + g.eligible + ')'); burst(t.querySelector('.gt-ring'), 10, false); }
+      PREV.n[g.key] = g.n;
     });
+    if (PREV.ready && leadKey && leadKey !== PREV.lead) { var lt = tiles[leadKey]; burst(lt, 40, true); tickMsg('👑 Nhóm ' + ranked[0].group + ' đang dẫn đầu!'); }
+    PREV.lead = leadKey;
+    // hoạt ảnh đổi chỗ (FLIP)
+    Object.keys(tiles).forEach(function (k) {
+      var a = before[k], b = tiles[k].getBoundingClientRect(); if (!a || !PREV.ready) return;
+      var dx = a.left - b.left, dy = a.top - b.top; if (Math.abs(dx) + Math.abs(dy) < 2) return;
+      tiles[k].animate([{ transform: 'translate(' + dx + 'px,' + dy + 'px)' }, { transform: 'none' }], { duration: 700, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    });
+    PREV.ready = true;
     $('hide').style.display = v.showLive ? 'none' : 'block';
   }
   function updLobby(v) {

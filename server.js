@@ -195,12 +195,20 @@ async function apiRate(req, res) {
   send(res, 200, { ok: true });
 }
 
+// Emoji mặt người ngẫu nhiên cho từng bạn (ổn định giữa các lần làm mới, không lộ tên)
+const FACES = ['😀','😃','😄','😁','😆','😊','🙂','😉','😎','🤓','🥳','🤩','😇','🤗','🤠','😺','😸','🐱','🐶','🐼','🦊','🐯','🦁','🐨','🐸','🐵','🐰','🐻','🦄','🐙','🐧','🐥','🦉','🐢','🐳','🌞','🌈','🍀','🍉','🍓'];
+function faceFor(st) {
+  let h = 2166136261; const k = st.mssv + ':' + st.joinedAt;
+  for (let i = 0; i < k.length; i++) { h ^= k.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return FACES[h % FACES.length];
+}
+
 // ---------- Màn hình chiếu (công khai, không có thông tin cá nhân) ----------
 function screenView() {
   const v = { now: Date.now(), startsAt: S.startsAt, endsAt: S.endsAt, phase: S.phase, joined: Object.keys(S.students).length, showLive: S.showLive };
   if (S.phase === 'lobby') {
     v.bubbles = Object.values(S.students).sort((a, b) => a.joinedAt - b.joinedAt).slice(-200)
-      .map((st) => ({ t: (st.name.trim().split(/\s+/).pop() || '?').charAt(0).toUpperCase(), c: st.cls }));
+      .map((st) => ({ t: faceFor(st), c: st.cls }));
     v.cls = S.sessionClass;
     v.total = R().length;   // chỉ là số lượng, không lộ thông tin cá nhân
     v.classes = [...new Set(R().map((r) => r.cls))].map((c) => ({ cls: c, total: R().filter((r) => r.cls === c).length, joined: Object.values(S.students).filter((st) => st.cls === c).length }));
