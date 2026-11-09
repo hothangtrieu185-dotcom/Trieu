@@ -178,6 +178,14 @@
   }
   function countUp(el, to) { var t0 = performance.now(); (function f(t) { var p = Math.min(1, (t - t0) / 1200); el.textContent = (to * (1 - Math.pow(1 - p, 3))).toFixed(2); if (p < 1) requestAnimationFrame(f); })(t0); }
 
+  // đồng hồ còn lại của phòng chấm (nổi ở góc màn hình)
+  setInterval(function () {
+    var r = view && view.phase === 'grading' ? view.room : null, el = document.getElementById('tmrpill');
+    var left = r && r.open && r.endsAt && now() >= r.startsAt ? Math.max(0, Math.ceil((r.endsAt - now()) / 1000)) : -1;
+    if (left < 0) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'tmrpill'; el.style.cssText = 'position:fixed;top:10px;right:10px;z-index:200;padding:8px 14px;border-radius:999px;background:#fff;border:2px solid #1b1b1b;font:800 18px sans-serif;box-shadow:0 3px 0 #1b1b1b;font-variant-numeric:tabular-nums'; document.body.appendChild(el); }
+    el.textContent = '⏱️ ' + Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2); el.style.color = left <= 60 ? '#c0392b' : '#1b1b1b';
+  }, 500);
   function poll() {
     return api('/api/state').then(function (j) { setView(j); render(false); })
       .catch(function (e) { if (e.status === 401) { stopPolling(); token = null; try { localStorage.removeItem('cd_token'); } catch (x) {} joinScreen(); } });

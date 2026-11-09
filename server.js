@@ -26,6 +26,8 @@ const fresh = () => ({
   activeKey: null,         // (không còn dùng: một phòng chấm chung)
   open: false,
   startsAt: 0,           // mốc bắt đầu chấm (sau đếm ngược 5 giây)
+  duration: 10,          // thời lượng phòng chấm (phút): 5, 10 hoặc 15
+  endsAt: 0,             // mốc tự đóng phòng chấm (0 = không giới hạn)
   showLive: true,
   updatedAt: Date.now(),
 });
@@ -131,7 +133,7 @@ function studentView(st) {
       return { key: g.key, cls: g.cls, group: g.group, form: g.form, formLabel: formLabel(g.form), own,
         criteria: own ? [] : RUBRICS[g.form].criteria, mine: m ? { scores: m.scores, total: m.total } : null };
     });
-    v.room = { open: S.open, startsAt: S.startsAt, groups, done: groups.filter((g) => g.mine).length, need: groups.filter((g) => !g.own).length };
+    v.room = { open: S.open, startsAt: S.startsAt, endsAt: S.endsAt, groups, done: groups.filter((g) => g.mine).length, need: groups.filter((g) => !g.own).length };
   }
   if (S.phase === 'ended') {
     const mine = S.groups.find((x) => sameGroup(st, x));
@@ -163,6 +165,11 @@ async function apiJoin(req, res) {
   save();
   send(res, 200, Object.assign({ token: st.token }, studentView(st)));
 }
+// tự đóng phòng chấm khi hết giờ
+function autoClose() {
+  if (S.phase === 'grading' && S.open && S.endsAt && Date.now() >= S.endsAt) { S.open = false; save(); }
+}
+setInterval(autoClose, 1000);
 async function apiRate(req, res) {
   const st = studentFromReq(req);
   if (!st) return fail(res, 401, 'Phiên không hợp lệ. Vui lòng vào lại từ mã QR.');
@@ -171,7 +178,8 @@ async function apiRate(req, res) {
   if (S.phase !== 'grading') return fail(res, 409, 'Phòng chấm hiện chưa mở.');
   if (!g || !g.form) return fail(res, 400, 'Không tìm thấy nhóm cần chấm.');
   if (Date.now() < S.startsAt) return fail(res, 409, 'Chưa đến giờ chấm, vui lòng chờ đếm ngược xong.');
-  if (!S.open) return fail(res, 409, 'Giảng viên đã đóng phòng chấm.');
+  autoClose();
+  if (!S.open) return fail(res, 409, S.endsAt && Date.now() >= S.endsAt ? 'Đã hết giờ chấm.' : 'Giảng viên đã đóng phòng chấm.');
   if (sameGroup(st, g)) return fail(res, 403, 'Bạn không được chấm điểm nhóm của mình.');
   const crit = RUBRICS[g.form].criteria;
   const scores = {}; let total = 0;
@@ -189,7 +197,7 @@ async function apiRate(req, res) {
 
 // ---------- Màn hình chiếu (công khai, không có thông tin cá nhân) ----------
 function screenView() {
-  const v = { now: Date.now(), startsAt: S.startsAt, phase: S.phase, joined: Object.keys(S.students).length, showLive: S.showLive };
+  const v = { now: Date.now(), startsAt: S.startsAt, endsAt: S.endsAt, phase: S.phase, joined: Object.keys(S.students).length, showLive: S.showLive };
   if (S.phase === 'lobby') {
     v.bubbles = Object.values(S.students).sort((a, b) => a.joinedAt - b.joinedAt).slice(-200)
       .map((st) => ({ t: (st.name.trim().split(/\s+/).pop() || '?').charAt(0).toUpperCase(), c: st.cls }));
@@ -216,7 +224,7 @@ function adminView() {
     list: S.roster.filter((r) => sameGroup(r, g)).map((r) => ({ mssv: r.mssv, name: r.name, leader: !!r.leader, joined: !!S.students[r.mssv] }))
       .sort((a, b) => (b.leader - a.leader) || a.name.localeCompare(b.name, 'vi')) }));
   const classes = [...new Set(S.roster.map((r) => r.cls))].map((c) => ({ cls: c, count: S.roster.filter((r) => r.cls === c).length }));
-  const v = { now: Date.now(), startsAt: S.startsAt, phase: S.phase, activeKey: S.activeKey, open: S.open, showLive: S.showLive, classes, groups,
+  const v = { now: Date.now(), startsAt: S.startsAt, endsAt: S.endsAt, duration: S.duration, phase: S.phase, activeKey: S.activeKey, open: S.open, showLive: S.showLive, classes, groups,
     sessionClass: S.sessionClass, joined: Object.keys(S.students).length, total: R().length, forms: Object.fromEntries(Object.entries(RUBRICS).map(([k, f]) => [k, { label: f.label, criteria: f.criteria }])) };
   const gs = S.groups.filter((g) => g.form);
   v.pending = Object.values(S.students).map((st) => { const need = gs.filter((g) => !sameGroup(st, g)).length, done = S.ratings.filter((r) => r.mssv === st.mssv).length; return { mssv: st.mssv, name: st.name, cls: st.cls, left: need - done }; })
@@ -322,11 +330,22 @@ async function apiAdmin(req, res, url) {
     const miss = S.groups.filter((g) => !g.form);
     if (miss.length) return fail(res, 400, 'Hãy chọn hình thức dự án cho tất cả các nhóm trước khi mở phòng chấm (còn thiếu: ' + miss.map((g) => 'Nhóm ' + g.group).join(', ') + ').');
     S.groups.slice().sort((a, b) => a.group - b.group).forEach((g, i) => { g.order = i + 1; });
-    S.phase = 'grading'; S.activeKey = null; S.open = true; S.startsAt = Date.now() + 5000; save(); return send(res, 200, { ok: true });
+    S.phase = 'grading'; S.activeKey = null; S.open = true; S.startsAt = Date.now() + 5000; S.endsAt = S.startsAt + S.duration * 60000; save(); return send(res, 200, { ok: true });
   }
   if (p === '/api/admin/toggle') {
     if (S.phase !== 'grading') return fail(res, 409, 'Chưa kích hoạt chấm.');
-    S.open = !!b.open; save(); return send(res, 200, { ok: true });
+    S.open = !!b.open; if (S.open) S.endsAt = 0; save(); return send(res, 200, { ok: true });   // mở lại thủ công: không giới hạn giờ, hoặc đặt lại giờ ở /timer
+  }
+  if (p === '/api/admin/duration') {   // chọn thời lượng trước khi mở phòng chấm
+    const m = Number(b.min);
+    if (![5, 10, 15].includes(m)) return fail(res, 400, 'Thời lượng chỉ có thể là 5, 10 hoặc 15 phút.');
+    S.duration = m; save(); return send(res, 200, { ok: true });
+  }
+  if (p === '/api/admin/timer') {   // đặt lại đồng hồ khi đang chấm (mở lại phòng nếu đã hết giờ)
+    const m = Number(b.min);
+    if (S.phase !== 'grading') return fail(res, 409, 'Chưa kích hoạt chấm.');
+    if (![5, 10, 15].includes(m)) return fail(res, 400, 'Thời lượng chỉ có thể là 5, 10 hoặc 15 phút.');
+    S.duration = m; S.endsAt = Date.now() + m * 60000; S.open = true; save(); return send(res, 200, { ok: true });
   }
   if (p === '/api/admin/resetgroup') {   // xóa toàn bộ điểm của một nhóm (phòng khi lỗi), các bạn đã chấm sẽ chấm lại được
     const g = groupByKey(b.key);
@@ -338,7 +357,7 @@ async function apiAdmin(req, res, url) {
   }
   if (p === '/api/admin/back') {   // đóng phòng chấm, quay về phòng chờ (chưa có điểm mới được đổi hình thức)
     if (S.phase !== 'grading') return fail(res, 409, 'Chưa ở trạng thái chấm.');
-    S.phase = 'lobby'; S.activeKey = null; S.open = false; S.startsAt = 0;
+    S.phase = 'lobby'; S.activeKey = null; S.open = false; S.startsAt = 0; S.endsAt = 0;
     S.groups.forEach((g) => { if (!S.ratings.some((r) => r.key === g.key)) g.order = null; });
     save(); return send(res, 200, { ok: true });
   }
@@ -351,7 +370,7 @@ async function apiAdmin(req, res, url) {
   if (p === '/api/admin/live') { S.showLive = !!b.show; save(); return send(res, 200, { ok: true }); }
   if (p === '/api/admin/end') {
     if (S.phase !== 'grading') return fail(res, 409, 'Chưa ở trạng thái chấm.');
-    S.phase = 'ended'; S.open = false; save(); return send(res, 200, { ok: true });
+    S.phase = 'ended'; S.open = false; S.endsAt = 0; save(); return send(res, 200, { ok: true });
   }
   if (p === '/api/admin/reset') {
     if (b.confirm !== 'XOA') return fail(res, 400, 'Cần xác nhận.');

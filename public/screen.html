@@ -87,7 +87,7 @@
   }
   function buildGrading(v) {
     app.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2vw;flex-wrap:wrap"><div><div style="font-size:3vh;opacity:.8">Phòng chấm chung</div><div style="font-size:5vh;font-weight:800;margin:.4vh 0">Tất cả các nhóm cùng được chấm</div></div>' +
-      '<div style="display:flex;align-items:center;gap:1.6vw"><div style="text-align:right"><div style="font-size:2.8vh" id="status"></div><div style="font-size:2.2vh;opacity:.75;margin-top:.8vh">Đã chấm xong tất cả: <b id="fin">0</b> / <span id="tj">0</span> bạn</div><div class="bar" style="margin-top:6px"><i id="fbar" style="width:0%"></i></div></div>' +
+      '<div style="display:flex;align-items:center;gap:1.6vw"><div style="text-align:center;padding:0 1vw"><div style="font-size:2vh;opacity:.75">Thời gian còn lại</div><div id="tmr" style="font-size:9vh;font-weight:900;line-height:1;font-variant-numeric:tabular-nums">--:--</div></div><div style="text-align:right"><div style="font-size:2.8vh" id="status"></div><div style="font-size:2.2vh;opacity:.75;margin-top:.8vh">Đã chấm xong tất cả: <b id="fin">0</b> / <span id="tj">0</span> bạn</div><div class="bar" style="margin-top:6px"><i id="fbar" style="width:0%"></i></div></div>' +
       '<div class="qrsm"><img src="/qr.svg" alt="QR" style="height:15vh;width:15vh;display:block"><i class="scan"></i><i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i></div></div></div>' +
       '<div id="gg" style="display:grid;gap:2vh 1.6vw;margin-top:3vh;grid-template-columns:repeat(auto-fit,minmax(24vw,1fr))">' + v.groups.map(function (g) {
         return '<div class="card-s gtile" data-k="' + esc(g.key) + '" style="text-align:center"><div style="font-size:3.2vh;font-weight:800">Nhóm ' + g.group + '</div><div style="font-size:2.2vh;opacity:.75;margin:.4vh 0 1.2vh">' + esc(g.formLabel) + '</div>' +
@@ -96,6 +96,14 @@
   }
 
   // ---------- cập nhật ----------
+  function tmrTick() {
+    var el = $('tmr'); if (!el || !last || last.phase !== 'grading') return;
+    if (!last.open) { el.textContent = last.endsAt && now() >= last.endsAt ? 'Hết giờ' : '🔒'; el.style.color = ''; return; }
+    if (!last.endsAt) { el.textContent = '∞'; el.style.color = ''; return; }
+    var left = Math.max(0, Math.ceil((last.endsAt - now()) / 1000));
+    el.textContent = Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2); el.style.color = left <= 60 ? '#c0392b' : '';
+  }
+  setInterval(tmrTick, 250);
   function updGrading(v) {
     $('status').innerHTML = v.open ? '<span class="pulse"></span>Đang mở chấm' : '🔒 Đã đóng chấm';
     $('fin').textContent = v.finished; $('tj').textContent = v.joined; $('fbar').style.width = (v.joined ? Math.round(v.finished / v.joined * 100) : 0) + '%';
@@ -175,7 +183,7 @@
   }
 
   function apply(v) {
-    offset = v.now - Date.now();
+    offset = v.now - Date.now(); last = v;
     var m = v.phase;
     if (m !== mode) {
       mode = m; app.classList.toggle('lobby-on', v.phase === 'lobby'); document.querySelectorAll('.sbl').forEach(function (x) { x.remove(); }); if (v.phase !== 'lobby') clearInterval(lb.sayTimer);
@@ -190,6 +198,57 @@
   function tick() {
     fetch('/api/screen').then(function (r) { return r.json(); }).then(apply).catch(function () {});
   }
+  // ---------- nhạc nền nhẹ nhàng (WebAudio, không cần tệp âm thanh) ----------
+  var MU = { ctx: null, master: null, bus: null, on: false, timer: null, step: 0, muted: false, btn: null, want: false };
+  try { MU.muted = localStorage.getItem('cd-music') === 'off'; } catch (e) {}
+  var TUNE = { bpm: 72, ch: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], bass: [45, 41, 36, 43] };
+  function mf(n) { return 440 * Math.pow(2, (n - 69) / 12); }
+  function muInit() {
+    if (MU.ctx) return true;
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+    var c = MU.ctx = new AC();
+    MU.master = c.createGain(); MU.master.gain.value = 0;
+    var lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2000;
+    var dl = c.createDelay(1); dl.delayTime.value = .38; var fb = c.createGain(); fb.gain.value = .35; dl.connect(fb); fb.connect(dl);
+    MU.bus = c.createGain(); MU.bus.connect(lp); MU.bus.connect(dl); dl.connect(lp); lp.connect(MU.master); MU.master.connect(c.destination);
+    return true;
+  }
+  function note(f, t, d, type, v) {
+    var c = MU.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .03); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(g); g.connect(MU.bus); o.start(t); o.stop(t + d + .05);
+  }
+  function beat() {
+    if (!MU.on || !MU.ctx) return;
+    var c = MU.ctx, b = 60 / TUNE.bpm, t = c.currentTime + .05, bar = Math.floor(MU.step / 8) % 4, i = MU.step % 8, ch = TUNE.ch[bar];
+    if (i === 0) { ch.forEach(function (n) { note(mf(n), t, b * 4, 'triangle', .07); }); note(mf(TUNE.bass[bar]), t, b * 3.5, 'sine', .16); }
+    note(mf(ch[i % 3] + 12 + (i >= 5 ? 12 : 0)), t, b * 1.2, 'triangle', .09);
+    MU.step++; MU.timer = setTimeout(beat, b / 2 * 1000);
+  }
+  function muPlay() {
+    if (MU.on || MU.muted || !muInit()) return;
+    if (MU.ctx.state === 'suspended') MU.ctx.resume();
+    if (MU.ctx.state !== 'running') return;
+    MU.on = true; MU.master.gain.cancelScheduledValues(MU.ctx.currentTime); MU.master.gain.linearRampToValueAtTime(.16, MU.ctx.currentTime + 1.5); beat();
+  }
+  function muStop() { if (!MU.on) return; MU.on = false; clearTimeout(MU.timer); if (MU.ctx) MU.master.gain.linearRampToValueAtTime(0, MU.ctx.currentTime + 1.2); }
+  function muBtn() {
+    if (!MU.btn) {
+      var b = document.createElement('button'); b.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:300;border:2px solid #1b1b1b;background:#fff;color:#1b1b1b;border-radius:999px;padding:8px 14px;font:600 14px sans-serif;cursor:pointer;box-shadow:0 3px 0 #1b1b1b';
+      b.onclick = function () {
+        if (MU.muted || !MU.on) { MU.muted = false; try { localStorage.setItem('cd-music', 'on'); } catch (e) {} muInit(); MU.ctx.resume().then(function () { if (MU.want) muPlay(); muBtn(); }); }
+        else { MU.muted = true; try { localStorage.setItem('cd-music', 'off'); } catch (e) {} muStop(); }
+        muBtn();
+      };
+      document.body.appendChild(b); MU.btn = b;
+    }
+    MU.btn.style.display = MU.want ? '' : 'none';
+    MU.btn.textContent = MU.muted ? '🔇 Nhạc: tắt' : MU.on ? '🎵 Nhạc: bật' : '🎵 Bấm để bật nhạc';
+  }
+  function muSync(phase) { MU.want = phase === 'lobby' || phase === 'grading'; if (MU.want) muPlay(); else muStop(); muBtn(); }
+  document.addEventListener('click', function () { if (MU.want && !MU.on && !MU.muted) { muInit(); MU.ctx.resume().then(function () { muPlay(); muBtn(); }); } });
+  setInterval(function () { muSync(mode); }, 1500);
+
   tick(); setInterval(tick, 800);
 })();
 </script>

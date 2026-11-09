@@ -15,7 +15,7 @@
 (function () {
   var app = document.getElementById('app');
   var token = null; try { token = localStorage.getItem('cd_admin'); } catch (e) {}
-  var S = null, timer = null, busy = false, lastSig = '', notice = '';
+  var OFF = 0, S = null, timer = null, busy = false, lastSig = '', notice = '';
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function api(path, opt) {
@@ -58,6 +58,12 @@
       Object.keys(S.forms).map(function (f) { return '<option value="' + f + '"' + (val === f ? ' selected' : '') + '>' + esc(S.forms[f].label) + '</option>'; }).join('') + '</select>';
   }
 
+  setInterval(function () {
+    var el = document.getElementById('admt'); if (!el || !S) return;
+    if (!S.endsAt) { el.textContent = S.open ? 'Không giới hạn' : 'Đã đóng'; return; }
+    var left = Math.max(0, Math.ceil((S.endsAt - (Date.now() + OFF)) / 1000));
+    el.textContent = (S.open || left > 0 ? Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2) : 'Hết giờ'); el.style.color = left <= 60 && S.open ? '#c0392b' : '';
+  }, 500);
   function render(force) {
     // chỉ hoãn vẽ lại khi đang mở ô chọn hình thức (tự làm mới); thao tác của giảng viên luôn vẽ lại ngay
     var ae = document.activeElement; if (!force && ae && ae.tagName === 'SELECT') return;
@@ -90,6 +96,7 @@
         '<div class="card"><h2>Bước 3. Chọn hình thức dự án và mở phòng chấm</h2><p><b style="font-size:32px">' + S.joined + '</b> <span class="muted">/ ' + S.total + ' sinh viên đã vào</span></p>' +
         '<p class="muted small">Tất cả các nhóm được chấm cùng lúc trong một phòng chung, nên hãy chọn hình thức (Workshop, Video, Fanpage Facebook) cho từng nhóm trước.</p>' +
         '<table><tr><th>Nhóm</th><th>Hình thức dự án</th></tr>' + S.groups.map(function (g) { return '<tr><td>Nhóm ' + g.group + '</td><td>' + formSelect('gf_' + g.key, g.form, 'gform').replace('<select ', '<select data-k="' + esc(g.key) + '" ') + '</td></tr>'; }).join('') + '</table>' +
+        '<div style="margin-top:14px"><label class="small muted" style="display:block;margin-bottom:6px"><b>Thời gian phòng chấm</b> (hết giờ phòng tự đóng)</label><div class="row" id="durs">' + [5, 10, 15].map(function (m) { return '<button class="dur ' + ((S.duration || 10) === m ? 'accent' : 'ghost') + '" data-m="' + m + '">' + m + ' phút</button>'; }).join('') + '</div></div>' +
         '<div style="margin-top:14px"><button class="accent full" id="start"' + (S.groups.every(function (g) { return g.form; }) ? '' : ' disabled') + '>Mở phòng chấm cho tất cả các nhóm (đếm ngược 5 giây)</button></div></div></div>' +
         '<div class="card"><h2>Thành viên từng nhóm</h2><p class="muted small">Xem ai đã vào phòng, ai chưa.</p><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">' +
         S.groups.map(function (g) { return '<div class="gcard"><b>' + esc(groupName(g)) + '</b><div style="margin-top:6px">' + membersHtml(g, true) + '</div></div>'; }).join('') + '</div></div>';
@@ -102,6 +109,7 @@
         h += '<div class="card" style="border-color:var(--accent)"><div class="row" style="justify-content:space-between"><div><span class="tag ' + (S.open ? 'ok' : 'bad') + '">' + (S.open ? 'Phòng chấm đang mở' : 'Phòng chấm đã đóng') + '</span>' +
           '<h2 style="margin-top:8px">Phòng chấm chung · ' + esc(S.sessionClass || '') + '</h2></div><div class="center"><div class="small muted">Sinh viên đã chấm xong tất cả</div><div style="font-size:44px;font-weight:800;color:var(--accent);line-height:1">' + done + ' / ' + tot + '</div></div></div>' +
           '<div class="bar" style="margin-top:8px"><i style="width:' + pct + '%"></i></div>' +
+          '<div class="row" style="margin-top:14px;align-items:center"><span class="small muted">⏱️ Còn lại</span><b id="admt" style="font-size:30px;font-variant-numeric:tabular-nums">--:--</b><span class="small muted">Đặt lại giờ:</span>' + [5, 10, 15].map(function (m) { return '<button class="ghost tmr" data-m="' + m + '">' + m + ' phút</button>'; }).join('') + '</div>' +
           '<div class="row" style="margin-top:14px">' + (S.open ? '<button id="close" class="danger">Đóng phòng chấm</button>' : '<button id="open">Mở lại phòng chấm</button>') + '<button id="back" class="ghost">← Quay lại phòng chờ</button>' +
           '<label class="row" style="margin:0;font-weight:500"><input type="checkbox" id="live"' + (S.showLive ? ' checked' : '') + '> Hiện điểm trực tiếp trên màn hình chiếu</label></div>' +
           ((S.pending && S.pending.length) ? '<details style="margin-top:12px"><summary class="small"><b>' + S.pending.length + '</b> sinh viên chưa chấm đủ</summary><p class="small muted" style="margin-top:8px">' + S.pending.map(function (p) { return esc(p.name) + ' (' + esc(p.mssv) + ', còn ' + p.left + ' nhóm)'; }).join(' · ') + '</p></details>' : '<p class="small muted" style="margin-top:12px">Mọi sinh viên đã vào phòng đều chấm đủ các nhóm.</p>') + '</div>';
@@ -167,6 +175,8 @@
     });
     if ($('sescls')) $('sescls').onchange = function () { pick.cls = this.value; render(true); };
     if ($('lobby')) $('lobby').onclick = function () { act('/api/admin/lobby', { cls: $('sescls') ? $('sescls').value : '' }); };
+    document.querySelectorAll('.dur').forEach(function (b) { b.onclick = function () { act('/api/admin/duration', { min: +b.getAttribute('data-m') }); }; });
+    document.querySelectorAll('.tmr').forEach(function (b) { b.onclick = function () { act('/api/admin/timer', { min: +b.getAttribute('data-m') }); }; });
     if ($('start')) $('start').onclick = function () { act('/api/admin/start', {}); };
     if ($('url')) fetch('/api/public-url').then(function (r) { return r.json(); }).then(function (j) { if ($('url')) $('url').textContent = j.url; });
     if ($('back')) $('back').onclick = function () {
@@ -182,7 +192,7 @@
   function load(force) {
     if (!token) return Promise.resolve();
     return api('/api/admin/state').then(function (j) {
-      var sig = JSON.stringify(Object.assign({}, j, { now: 0 })); if (!force && sig === lastSig) return; lastSig = sig; S = j; S.fetchedAt = Date.now(); render(force);
+      OFF = j.now - Date.now(); var sig = JSON.stringify(Object.assign({}, j, { now: 0 })); if (!force && sig === lastSig) return; lastSig = sig; S = j; S.fetchedAt = Date.now(); render(force);
     }).catch(function () {});
   }
   function start() { stop(); timer = setInterval(function () { load(false); }, 2000); }
